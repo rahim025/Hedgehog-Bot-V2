@@ -1,11 +1,17 @@
 /**
  * @author NTKhang & Célestin
- * ! GoatBot V2 - Edition Célestin
+ * ! GoatBot V2 - Edition Célestin (Version Stabilité Longue Durée)
  * ! Official source code: https://github.com/ntkhang03/Goat-Bot-V2
  */
 
-process.on('unhandledRejection', error => console.log('🔹 [Célestin Error Handler]', error));
-process.on('uncaughtException', error => console.log('🔹 [Célestin Error Handler]', error));
+// ———————————————— GESTION CRITIQUE DES ERREURS (ANTI-CRASH) ———————————————— //
+process.on('unhandledRejection', (error) => {
+  console.log('🔹 [Célestin Error Handler - Anti-Crash Rejection]', error?.stack || error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.log('🔹 [Célestin Error Handler - Anti-Crash Exception]', error?.stack || error);
+});
 
 const axios = require("axios");
 const fs = require("fs-extra");
@@ -131,7 +137,7 @@ global.temp = {
   }
 };
 
-// Hot-Reload des configurations avec logs Célestin
+// Hot-Reload optimisé des configurations (prévention des blocages d'E/S)
 const watchAndReloadConfig = (dir, type, prop, logName) => {
   let lastModified = fs.statSync(dir).mtimeMs;
   let isFirstModified = true;
@@ -146,18 +152,18 @@ const watchAndReloadConfig = (dir, type, prop, logName) => {
             isFirstModified = false;
             return;
           }
-          if (lastModified === fs.statSync(dir).mtimeMs) {
+          const currentMtime = fs.statSync(dir).mtimeMs;
+          if (lastModified === currentMtime) {
             return;
           }
           global.GoatBot[prop] = JSON.parse(fs.readFileSync(dir, 'utf-8'));
           log.success(`CÉLESTIN - ${logName}`, `Rechargement réussi de ${dir.replace(process.cwd(), "")} 😏`);
+          lastModified = currentMtime;
         } catch (err) {
           log.warn(`CÉLESTIN - ${logName}`, `Impossible de recharger ${dir.replace(process.cwd(), "")}`);
           global.GoatBot[prop] = oldConfig;
-        } finally {
-          lastModified = fs.statSync(dir).mtimeMs;
         }
-      }, 200);
+      }, 300);
     }
   });
 };
@@ -171,13 +177,13 @@ global.GoatBot.envEvents = global.GoatBot.configCommands.envEvents;
 
 const getText = global.utils.getText;
 
-// ———————————————— REDÉMARRAGE AUTOMATIQUE ———————————————— //
+// ———————————————— REDÉMARRAGE AUTOMATIQUE STABLE ———————————————— //
 if (config.autoRestart) {
   const time = config.autoRestart.time;
   if (!isNaN(time) && time > 0) {
     utils.log.info("CÉLESTIN - AUTO RESTART", getText("Goat", "autoRestart1", utils.convertTime(time, true)));
     setTimeout(() => {
-      utils.log.info("CÉLESTIN - AUTO RESTART", "Redémarrage en cours... A tout de suite !");
+      utils.log.info("CÉLESTIN - AUTO RESTART", "Redémarrage en cours... À tout de suite !");
       process.exit(2);
     }, time);
   } else if (typeof time === "string" && time.match(/^((((\d+,)+\d+|(\d+(\/|-|#)\d+)|\d+L?|\*(\/\d+)?|L(-\d+)?|\?|[A-Z]{3}(-[A-Z]{3})?) ?){5,7})$/gmi)) {
@@ -228,9 +234,9 @@ if (config.autoRestart) {
     }
   }
 
-  // ———————————————— VÉRIFICATION VERSION ———————————————— //
+  // —————————— VÉRIFICATION VERSION —————————— //
   try {
-    const { data: { version } } = await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2/main/package.json");
+    const { data: { version } } = await axios.get("https://raw.githubusercontent.com/ntkhang03/Goat-Bot-V2/main/package.json", { timeout: 5000 });
     const currentVersion = require("./package.json").version;
     if (compareVersion(version, currentVersion) === 1) {
       utils.log.master("CÉLESTIN - UPDATE", getText(
@@ -253,7 +259,7 @@ if (config.autoRestart) {
     utils.log.warn("CÉLESTIN - DRIVE", "Google Drive désactivé.");
   }
 
-  // ———————————————————— CONNEXION ———————————————————— //
+  // —————————— CONNEXION —————————— //
   utils.log.info("CÉLESTIN", "Lancement du processus de connexion... 🚀");
   require(`./bot/login/login${NODE_ENV === 'development' ? '.dev.js' : '.js'}`);
 })();
@@ -267,3 +273,14 @@ function compareVersion(version1, version2) {
   }
   return 0;
 }
+
+// ———————————————— NETTOYAGE LORS DE L'ARRÊT ———————————————— //
+process.on('SIGINT', () => {
+  utils.log.info("CÉLESTIN", "Arrêt du bot en cours...");
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  utils.log.info("CÉLESTIN", "Signal de terminaison reçu. Fermeture...");
+  process.exit(0);
+});
