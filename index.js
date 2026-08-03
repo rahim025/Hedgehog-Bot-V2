@@ -3,7 +3,10 @@ const express = require("express");
 
 const app = express();
 
-// 🔥 Serveur obligatoire pour Render (Version Célestin - Goat Bot V2)
+// Stockage de la date de lancement
+const startTime = Date.now();
+
+// Serveur d'affichage de l'Uptime (Version Célestin - Goat Bot V2)
 app.get("/", (req, res) => {
   res.send(`
   <!DOCTYPE html>
@@ -11,7 +14,7 @@ app.get("/", (req, res) => {
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Célestin - Goat Bot V2 (Autobot Admin Core)</title>
+      <title>Célestin - Status & Uptime</title>
       <style>
           * {
               box-sizing: border-box;
@@ -29,13 +32,13 @@ app.get("/", (req, res) => {
               overflow: hidden;
           }
 
-          /* Arrière-plan néon Autobot */
+          /* Arrière-plan néon */
           body::before {
               content: '';
               position: absolute;
               width: 200%;
               height: 200%;
-              background: radial-gradient(circle, rgba(239, 68, 68, 0.12) 0%, rgba(14, 165, 233, 0.08) 40%, transparent 70%);
+              background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, rgba(14, 165, 233, 0.08) 40%, transparent 70%);
               animation: rotateBg 25s linear infinite;
               z-index: 0;
           }
@@ -48,23 +51,23 @@ app.get("/", (req, res) => {
               backdrop-filter: blur(16px);
               padding: 2.5rem;
               border-radius: 20px;
-              box-shadow: 0 0 35px rgba(239, 68, 68, 0.25), inset 0 0 15px rgba(56, 189, 248, 0.15);
+              box-shadow: 0 0 35px rgba(16, 185, 129, 0.2), inset 0 0 15px rgba(56, 189, 248, 0.15);
               text-align: center;
               max-width: 450px;
               width: 90%;
               animation: fadeInUp 0.8s ease-out forwards;
-              border: 1px solid rgba(239, 68, 68, 0.4);
+              border: 1px solid rgba(16, 185, 129, 0.3);
           }
 
-          /* Badge Autobot Admin */
+          /* Badge d'état */
           .status {
               display: inline-flex;
               align-items: center;
               gap: 8px;
               padding: 6px 16px;
-              background: rgba(239, 68, 68, 0.15);
-              color: #f87171;
-              border: 1px solid rgba(239, 68, 68, 0.5);
+              background: rgba(16, 185, 129, 0.15);
+              color: #34d399;
+              border: 1px solid rgba(16, 185, 129, 0.5);
               border-radius: 20px;
               font-size: 0.85rem;
               font-weight: 700;
@@ -76,9 +79,9 @@ app.get("/", (req, res) => {
           .dot {
               width: 10px;
               height: 10px;
-              background-color: #ef4444;
+              background-color: #10b981;
               border-radius: 50%;
-              box-shadow: 0 0 10px #ef4444;
+              box-shadow: 0 0 10px #10b981;
               animation: pulse 1.5s infinite;
           }
 
@@ -87,115 +90,46 @@ app.get("/", (req, res) => {
               font-size: 1.8rem;
               letter-spacing: 1px;
               color: #ffffff;
-              text-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+              text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
           }
 
           .subtitle {
               color: #94a3b8;
               font-size: 0.85rem;
-              margin-bottom: 1.5rem;
+              margin-bottom: 2rem;
               text-transform: uppercase;
               letter-spacing: 1px;
           }
 
-          /* Formulaire Administrateur */
-          .auth-box {
+          /* Affichage du compteur Uptime */
+          .uptime-box {
               background: rgba(30, 41, 59, 0.8);
               border: 1px solid rgba(255, 255, 255, 0.1);
-              padding: 1.2rem;
-              border-radius: 12px;
-              margin-bottom: 1rem;
-              text-align: left;
-          }
-
-          .input-group {
+              padding: 1.5rem;
+              border-radius: 14px;
               margin-bottom: 1rem;
           }
 
-          .input-group label {
-              display: block;
+          .uptime-label {
               font-size: 0.75rem;
-              color: #f87171;
-              text-transform: uppercase;
-              font-weight: 700;
-              margin-bottom: 6px;
-              letter-spacing: 0.8px;
-          }
-
-          .input-group input {
-              width: 100%;
-              padding: 10px 12px;
-              background: #0f172a;
-              border: 1px solid #334155;
-              border-radius: 8px;
-              color: #f8fafc;
-              font-size: 0.9rem;
-              outline: none;
-              transition: all 0.3s;
-          }
-
-          .input-group input:focus {
-              border-color: #ef4444;
-              box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
-          }
-
-          .btn-connect {
-              width: 100%;
-              padding: 12px;
-              background: linear-gradient(135deg, #dc2626, #991b1b);
-              color: #ffffff;
-              border: none;
-              border-radius: 8px;
-              font-weight: 700;
-              letter-spacing: 1px;
-              cursor: pointer;
-              transition: transform 0.2s, box-shadow 0.2s;
-              text-transform: uppercase;
-          }
-
-          .btn-connect:hover {
-              transform: translateY(-2px);
-              box-shadow: 0 4px 18px rgba(239, 68, 68, 0.5);
-          }
-
-          /* Affichage Compte Admin Connecté */
-          .account-display {
-              display: none;
-              background: rgba(239, 68, 68, 0.1);
-              border: 1px solid rgba(239, 68, 68, 0.4);
-              padding: 1.2rem;
-              border-radius: 12px;
-              margin-top: 1rem;
-              animation: fadeInUp 0.5s ease-out;
-          }
-
-          .admin-tag {
-              display: inline-block;
-              background: #ef4444;
-              color: #fff;
-              font-size: 0.7rem;
-              font-weight: 800;
-              padding: 2px 8px;
-              border-radius: 4px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              margin-bottom: 8px;
-          }
-
-          .account-info {
-              font-size: 0.88rem;
-              color: #e2e8f0;
-              line-height: 1.6;
-          }
-
-          .uid-badge {
-              font-family: monospace;
-              background: #0f172a;
-              padding: 3px 8px;
-              border-radius: 6px;
               color: #38bdf8;
-              border: 1px solid rgba(56, 189, 248, 0.3);
+              text-transform: uppercase;
+              font-weight: 700;
+              letter-spacing: 1px;
+              margin-bottom: 10px;
+          }
+
+          .uptime-timer {
+              font-family: monospace;
+              font-size: 1.4rem;
               font-weight: bold;
+              color: #f8fafc;
+              letter-spacing: 2px;
+              background: #0f172a;
+              padding: 12px;
+              border-radius: 10px;
+              border: 1px solid rgba(56, 189, 248, 0.3);
+              box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
           }
 
           /* Animations */
@@ -205,9 +139,9 @@ app.get("/", (req, res) => {
           }
 
           @keyframes pulse {
-              0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-              70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-              100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+              0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+              70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+              100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
           }
 
           @keyframes rotateBg {
@@ -219,48 +153,40 @@ app.get("/", (req, res) => {
   <body>
       <div class="card">
           <div class="status">
-              <span class="dot"></span> Autobot Mode Active
+              <span class="dot"></span> System Operational
           </div>
           <h1>Célestin - Goat Bot V2</h1>
-          <p class="subtitle">Panneau d'administration & Contrôle UID</p>
+          <p class="subtitle">Moniteur de temps de fonctionnement</p>
 
-          <div class="auth-box" id="authForm">
-              <div class="input-group">
-                  <label for="username">Nom du Compte Admin</label>
-                  <input type="text" id="username" placeholder="Ex: Master Admin / Célestin">
-              </div>
-              <div class="input-group">
-                  <label for="uid">UID Administrateur</label>
-                  <input type="text" id="uid" placeholder="Ex: 100084739201928">
-              </div>
-              <button class="btn-connect" onclick="connectBot()">Accorder les privilèges Admin</button>
-          </div>
-
-          <div class="account-display" id="accountDisplay">
-              <span class="admin-tag">Access Granted</span>
-              <p style="color: #f87171; font-weight: 700; margin-bottom: 6px;">🤖 Autobot Connecté en Admin</p>
-              <div class="account-info">
-                  <strong>Compte :</strong> <span id="dispUser">-</span><br>
-                  <strong>UID Admin :</strong> <span id="dispUid" class="uid-badge">-</span>
-              </div>
+          <div class="uptime-box">
+              <div class="uptime-label">⏱️ Uptime du Bot</div>
+              <div class="uptime-timer" id="uptime">Chargement...</div>
           </div>
       </div>
 
       <script>
-          function connectBot() {
-              const username = document.getElementById('username').value;
-              const uid = document.getElementById('uid').value;
+          const botStartTime = ${startTime};
 
-              if (username && uid) {
-                  document.getElementById('dispUser').textContent = username;
-                  document.getElementById('dispUid').textContent = uid;
-                  
-                  document.getElementById('authForm').style.display = 'none';
-                  document.getElementById('accountDisplay').style.display = 'block';
-              } else {
-                  alert('Veuillez saisir le nom de compte et l\'UID Administrateur.');
-              }
+          function updateUptime() {
+              const now = Date.now();
+              const diff = Math.floor((now - botStartTime) / 1000);
+
+              const days = Math.floor(diff / (3600 * 24));
+              const hours = Math.floor((diff % (3600 * 24)) / 3600);
+              const minutes = Math.floor((diff % 3600) / 60);
+              const seconds = diff % 60;
+
+              const pad = (num) => String(num).padStart(2, '0');
+
+              let uptimeString = '';
+              if (days > 0) uptimeString += \`\${days}d \`;
+              uptimeString += \`\${pad(hours)}h \${pad(minutes)}m \${pad(seconds)}s\`;
+
+              document.getElementById('uptime').textContent = uptimeString;
           }
+
+          setInterval(updateUptime, 1000);
+          updateUptime();
       </script>
   </body>
   </html>
@@ -272,11 +198,11 @@ app.listen(PORT, () => {
   console.log("🌍 Server running on port " + PORT);
 });
 
-// 💥 sécurité anti crash
-process.on("uncaughtException", err => console.error("💥", err));
-process.on("unhandledRejection", err => console.error("💥", err));
+// 💥 Sécurité Anti-Crash
+process.on("uncaughtException", err => console.error("💥 Uncaught Exception:", err));
+process.on("unhandledRejection", err => console.error("💥 Unhandled Rejection:", err));
 
-// 🚀 lancement bot
+// 🚀 Lancement du bot via Child Process
 function startBot() {
   const child = spawn("node", ["Goat.js"], {
     stdio: "inherit",
@@ -284,19 +210,19 @@ function startBot() {
   });
 
   child.on("close", (code) => {
-    console.log("🔁 Bot arrêté avec code:", code);
+    console.log("🔁 Bot arrêté avec le code:", code);
 
-    // restart seulement si erreur
+    // Redémarrage automatique si fermeture anormale
     if (code !== 0) {
       setTimeout(() => {
-        console.log("♻️ Redémarrage...");
+        console.log("♻️ Redémarrage du bot...");
         startBot();
       }, 5000);
     }
   });
 
   child.on("error", (err) => {
-    console.error("❌ Spawn error:", err);
+    console.error("❌ Erreur au lancement (Spawn):", err);
   });
 }
 
