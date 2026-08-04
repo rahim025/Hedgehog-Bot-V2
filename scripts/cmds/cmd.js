@@ -455,4 +455,21 @@ function loadScripts(folder, fileName, log, configCommands, api, threadModel, us
 function unloadScripts(folder, fileName, configCommands, getLang) {
 	try {
 		const { GoatBot } = global;
-		let setMap = folder == "cmds" ? "commands" : "eventCommand
+		let setMap = folder == "cmds" ? "commands" : "eventCommands";
+		
+		let pathCommand = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}.js`);
+		if (!fs.existsSync(pathCommand)) pathCommand = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}`);
+
+		if (!fs.existsSync(pathCommand)) throw new Error(`File ${fileName} does not exist`);
+
+		const command = require(pathCommand);
+		const commandName = command.config.name;
+
+		GoatBot[setMap].delete(commandName);
+		delete require.cache[require.resolve(pathCommand)];
+
+		return { status: "success", name: commandName };
+	} catch (error) {
+		return { status: "failed", name: fileName, error };
+	}
+}
