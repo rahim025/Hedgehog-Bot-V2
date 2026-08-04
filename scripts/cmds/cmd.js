@@ -1,10 +1,9 @@
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const axios = require("axios");
 const { execSync } = require("child_process");
 const fs = require("fs-extra");
 const path = require("path");
 const cheerio = require("cheerio");
-const { client } = global;
 
 const { configCommands } = global.GoatBot;
 const { log, loading, removeHomeDir } = global.utils;
@@ -19,108 +18,149 @@ function isURL(str) {
 	try {
 		new URL(str);
 		return true;
-	}
-	catch (e) {
+	} catch (e) {
 		return false;
 	}
 }
 
+function truncateText(ctx, text, maxWidth) {
+	if (ctx.measureText(text).width <= maxWidth) return text;
+	while (ctx.measureText(text + '...').width > maxWidth && text.length > 0) {
+		text = text.slice(0, -1);
+	}
+	return text + '...';
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+	ctx.beginPath();
+	ctx.moveTo(x + radius, y);
+	ctx.lineTo(x + width - radius, y);
+	ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+	ctx.lineTo(x + width, y + height - radius);
+	ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+	ctx.lineTo(x + radius, y + height);
+	ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+	ctx.lineTo(x, y + radius);
+	ctx.quadraticCurveTo(x, y, x + radius, y);
+	ctx.closePath();
+}
+
 // ==========================================
-// 🎨 ENGIN CANVAS POUR BADGES TERMINAL/CMD
+// 🎨 ENGINE CANVAS POUR BADGES TERMINAL/CMD
 // ==========================================
 async function generateCmdCanvas(userId, userName, actionTitle, statusText, detailsText, themeColor) {
-	const canvas = createCanvas(900, 450);
+	const width = 900;
+	const height = 450;
+	const canvas = createCanvas(width, height);
 	const ctx = canvas.getContext('2d');
 
 	// Fond style terminal cyberpunk sombre
-	let gradient = ctx.createLinearGradient(0, 0, 900, 450);
+	let gradient = ctx.createLinearGradient(0, 0, width, height);
 	gradient.addColorStop(0, '#0a0a12');
 	gradient.addColorStop(0.5, '#111122');
 	gradient.addColorStop(1, '#0a0a12');
 	ctx.fillStyle = gradient;
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	ctx.fillRect(0, 0, width, height);
 
 	// Grille en arrière-plan style matrice technique
-	ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+	ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
 	ctx.lineWidth = 1;
-	for (let i = 0; i < canvas.width; i += 40) {
-		ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+	for (let i = 0; i < width; i += 40) {
+		ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
 	}
-	for (let j = 0; j < canvas.height; j += 40) {
-		ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+	for (let j = 0; j < height; j += 40) {
+		ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(width, j); ctx.stroke();
 	}
 
-	// Cadres doubles gravés de couleur dynamique
+	// Cadres doubles stylisés
 	ctx.strokeStyle = themeColor;
 	ctx.lineWidth = 4;
-	ctx.strokeRect(25, 25, 850, 400);
-	ctx.strokeStyle = '#ffffff';
+	drawRoundedRect(ctx, 25, 25, 850, 400, 12);
+	ctx.stroke();
+
+	ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
 	ctx.lineWidth = 1;
-	ctx.strokeRect(32, 32, 836, 386);
+	drawRoundedRect(ctx, 32, 32, 836, 386, 8);
+	ctx.stroke();
 
 	// Décorations graphiques (✦ ▬▭▬)
 	ctx.fillStyle = themeColor;
-	ctx.font = 'bold 16px "Sans-Serif"';
+	ctx.font = 'bold 16px sans-serif';
+	ctx.textAlign = 'left';
 	ctx.fillText("✧ ▬▭▬ ▬▬ ✦ ▬▬ ▬▭▬ ✧", 400, 65);
 	ctx.fillText("✧ ▬▭▬ ▬▬ ✦ ▬▬ ▬▭▬ ✧", 400, 395);
 
-	// Récupération de la photo de profil de l'exécuteur
-	const avatarUrl = `https://graph.facebook.com/${userId}/picture?width=300&height=300&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-	try {
-		const userAvatar = await loadImage(avatarUrl);
-		ctx.save();
-		ctx.beginPath();
-		ctx.arc(190, 225, 110, 0, Math.PI * 2, true);
-		ctx.closePath();
-		ctx.clip();
-		ctx.drawImage(userAvatar, 80, 115, 220, 220);
-		ctx.restore();
+	// Photo de profil
+	const avatarX = 190;
+	const avatarY = 225;
+	const avatarRadius = 110;
 
-		// Anneau lumineux autour de la photo
-		ctx.strokeStyle = themeColor;
-		ctx.lineWidth = 6;
-		ctx.beginPath();
-		ctx.arc(190, 225, 112, 0, Math.PI * 2);
-		ctx.stroke();
-	} catch (e) {
+	ctx.save();
+	ctx.beginPath();
+	ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2, true);
+	ctx.closePath();
+	ctx.clip();
+
+	const avatarUrl = `https://graph.facebook.com/${userId}/picture?height=500&width=500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+	let imgLoaded = false;
+
+	try {
+		const res = await axios.get(avatarUrl, { responseType: 'arraybuffer', timeout: 3000 });
+		const userAvatar = await loadImage(Buffer.from(res.data));
+		ctx.drawImage(userAvatar, avatarX - avatarRadius, avatarY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
+		imgLoaded = true;
+	} catch (e) {}
+
+	if (!imgLoaded) {
+		ctx.fillStyle = '#1a1a2e';
+		ctx.fillRect(avatarX - avatarRadius, avatarY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
 		ctx.fillStyle = themeColor;
-		ctx.beginPath(); ctx.arc(190, 225, 110, 0, Math.PI * 2); ctx.fill();
+		ctx.font = 'bold 60px sans-serif';
+		ctx.textAlign = 'center';
+		ctx.fillText(userName.charAt(0).toUpperCase() || '👤', avatarX, avatarY + 20);
 	}
+	ctx.restore();
+
+	// Anneau lumineux
+	ctx.strokeStyle = themeColor;
+	ctx.lineWidth = 6;
+	ctx.beginPath();
+	ctx.arc(avatarX, avatarY, avatarRadius + 2, 0, Math.PI * 2);
+	ctx.stroke();
 
 	// Textes du statut système
+	ctx.textAlign = 'left';
 	ctx.fillStyle = themeColor;
-	ctx.font = 'bold 36px "Sans-Serif"';
+	ctx.font = 'bold 36px sans-serif';
 	ctx.fillText(actionTitle, 400, 125);
 
-	ctx.fillStyle = '#ffffff';
-	ctx.font = 'bold 24px "Sans-Serif"';
-	ctx.fillText(`⚙️ 𝑶𝒑𝒆́𝒓𝒂𝒕𝒆𝒖𝒓 : ${userName.substring(0, 20)}`, 400, 185);
+	ctx.fillStyle = '#FFFFFF';
+	ctx.font = 'bold 24px sans-serif';
+	ctx.fillText(`⚙️ OPÉRATEUR : ${truncateText(ctx, userName, 420)}`, 400, 185);
 
-	ctx.fillStyle = '#ffffff';
-	ctx.font = '22px "Sans-Serif"';
-	ctx.fillText(statusText, 400, 245);
+	ctx.fillStyle = '#FFFFFF';
+	ctx.font = '22px sans-serif';
+	ctx.fillText(truncateText(ctx, statusText, 420), 400, 245);
 
-	// Sous-détails avec traitement de chaîne pour éviter les débordements
 	ctx.fillStyle = '#888888';
-	ctx.font = 'italic 16px "Sans-Serif"';
-	let cleanDetails = detailsText.length > 45 ? detailsText.substring(0, 45) + "..." : detailsText;
-	ctx.fillText(cleanDetails, 400, 305);
+	ctx.font = 'italic 16px sans-serif';
+	ctx.fillText(truncateText(ctx, detailsText, 430), 400, 305);
 
 	ctx.fillStyle = themeColor;
-	ctx.font = 'bold 16px "Sans-Serif"';
+	ctx.font = 'bold 16px sans-serif';
 	ctx.fillText("»» SYSTEM KERNEL ONLINE ««", 400, 355);
 
-	const tmpDir = path.join(__dirname, "..", "cache");
+	const tmpDir = path.join(__dirname, "cache");
 	await fs.ensureDir(tmpDir);
 	const imagePath = path.join(tmpDir, `cmd_${Date.now()}_${userId}.png`);
-	fs.writeFileSync(imagePath, canvas.toBuffer('image/png'));
+	await fs.outputFile(imagePath, canvas.toBuffer('image/png'));
 	return imagePath;
 }
 
 module.exports = {
 	config: {
 		name: "cmd",
-		version: "2.1",
+		version: "2.5.0",
 		author: "NTKhang x Célestin 🔥 (Canvas Edition)",
 		countDown: 5,
 		role: 2,
@@ -183,7 +223,10 @@ module.exports = {
 
 	onStart: async ({ args, message, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, event, commandName, getLang }) => {
 		const senderID = event.senderID;
-		const senderName = await usersData.getName(senderID);
+		let senderName = "Opérateur";
+		try {
+			senderName = await usersData.getName(senderID);
+		} catch (e) {}
 
 		// ==========================================
 		// CASE 1 : LOAD SINGLE SCRIPT
@@ -194,10 +237,14 @@ module.exports = {
 			
 			if (infoLoad.status == "success") {
 				const imagePath = await generateCmdCanvas(senderID, senderName, "⚡ SYSTEM RELOAD", `✓ Cmd [${infoLoad.name}] active`, `Path: /scripts/cmds/${infoLoad.name}.js`, "#00f5d4");
-				message.reply({ body: getLang("loaded", infoLoad.name), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+				message.reply({ body: getLang("loaded", infoLoad.name), attachment: fs.createReadStream(imagePath) }, () => {
+					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+				});
 			} else {
 				const imagePath = await generateCmdCanvas(senderID, senderName, "❌ RELOAD FAILED", `× Error in [${infoLoad.name}]`, infoLoad.error.message, "#f72585");
-				message.reply({ body: getLang("loadedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message) + "\n" + infoLoad.error.stack, attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+				message.reply({ body: getLang("loadedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message) + "\n" + infoLoad.error.stack, attachment: fs.createReadStream(imagePath) }, () => {
+					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+				});
 			}
 		}
 		
@@ -206,7 +253,7 @@ module.exports = {
 		// ==========================================
 		else if ((args[0] || "").toLowerCase() == "loadall" || (args[0] == "load" && args.length > 2)) {
 			const fileNeedToLoad = args[0].toLowerCase() == "loadall" ?
-				fs.readdirSync(__dirname).filter(file => file.endsWith(".js") && !file.match(/(eg)\.js$/g) && (process.env.NODE_ENV == "development" ? true : !file.match(/(dev)\.js$/g)) && !configCommands.commandUnload?.includes(file)).map(item => item = item.split(".")[0]) :
+				fs.readdirSync(__dirname).filter(file => file.endsWith(".js") && !file.match(/(eg)\.js$/g) && (process.env.NODE_ENV == "development" ? true : !file.match(/(dev)\.js$/g)) && !configCommands.commandUnload?.includes(file)).map(item => item.split(".")[0]) :
 				args.slice(1);
 			
 			const arraySucces = [];
@@ -227,7 +274,9 @@ module.exports = {
 			}
 
 			const imagePath = await generateCmdCanvas(senderID, senderName, "🔮 GLOBAL CORE LOAD", `Success: ${arraySucces.length} | Fails: ${arrayFail.length}`, "Full stack operations re-loaded", themeColor);
-			message.reply({ body: msg, attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+			message.reply({ body: msg, attachment: fs.createReadStream(imagePath) }, () => {
+				if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+			});
 		}
 		
 		// ==========================================
@@ -239,10 +288,14 @@ module.exports = {
 			
 			if (infoUnload.status == "success") {
 				const imagePath = await generateCmdCanvas(senderID, senderName, "📦 KERNEL UNLOAD", `✕ [${infoUnload.name}] disabled`, "Module cut off from memory stream", "#ffb703");
-				message.reply({ body: getLang("unloaded", infoUnload.name), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+				message.reply({ body: getLang("unloaded", infoUnload.name), attachment: fs.createReadStream(imagePath) }, () => {
+					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+				});
 			} else {
 				const imagePath = await generateCmdCanvas(senderID, senderName, "❌ UNLOAD ERROR", "Execution block failed", infoUnload.error.message, "#f72585");
-				message.reply({ body: getLang("unloadedError", infoUnload.name, infoUnload.error.name, infoUnload.error.message), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+				message.reply({ body: getLang("unloadedError", infoUnload.name, infoUnload.error.name, infoUnload.error.message), attachment: fs.createReadStream(imagePath) }, () => {
+					if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+				});
 			}
 		}
 		
@@ -304,10 +357,14 @@ module.exports = {
 				const infoLoad = loadScripts("cmds", fileName, log, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang, rawCode);
 				if (infoLoad.status == "success") {
 					const imagePath = await generateCmdCanvas(senderID, senderName, "📥 NET INSTALLATION", `✓ Setup [${infoLoad.name}] Done`, `Saved locally into system cluster`, "#72efdd");
-					message.reply({ body: getLang("installed", infoLoad.name, path.join(__dirname, fileName).replace(process.cwd(), "")), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+					message.reply({ body: getLang("installed", infoLoad.name, path.join(__dirname, fileName).replace(process.cwd(), "")), attachment: fs.createReadStream(imagePath) }, () => {
+						if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+					});
 				} else {
 					const imagePath = await generateCmdCanvas(senderID, senderName, "❌ INSTALL ERROR", "Compilation process crashed", infoLoad.error.message, "#f72585");
-					message.reply({ body: getLang("installedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+					message.reply({ body: getLang("installedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message), attachment: fs.createReadStream(imagePath) }, () => {
+						if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+					});
 				}
 			}
 		}
@@ -318,56 +375,44 @@ module.exports = {
 		const { author, data: { fileName, rawCode } } = Reaction;
 		if (event.userID != author) return;
 		
-		const senderName = await usersData.getName(author);
+		let senderName = "Opérateur";
+		try {
+			senderName = await usersData.getName(author);
+		} catch (e) {}
+
 		const infoLoad = loadScripts("cmds", fileName, log, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang, rawCode);
 		
 		if (infoLoad.status == "success") {
 			const imagePath = await generateCmdCanvas(author, senderName, "📝 OVERWRITE SUCCESS", `✓ Overwrote [${infoLoad.name}]`, "Old memory fragments deleted", "#72efdd");
-			message.reply({ body: getLang("installed", infoLoad.name, path.join(__dirname, fileName).replace(process.cwd(), "")), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+			message.reply({ body: getLang("installed", infoLoad.name, path.join(__dirname, fileName).replace(process.cwd(), "")), attachment: fs.createReadStream(imagePath) }, () => {
+				if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+			});
 		} else {
 			const imagePath = await generateCmdCanvas(author, senderName, "❌ OVERWRITE ERROR", "Failed to force rewrite injection", infoLoad.error.message, "#f72585");
-			message.reply({ body: getLang("installedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message), attachment: fs.createReadStream(imagePath) }, () => fs.unlinkSync(imagePath));
+			message.reply({ body: getLang("installedError", infoLoad.name, infoLoad.error.name, infoLoad.error.message), attachment: fs.createReadStream(imagePath) }, () => {
+				if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+			});
 		}
 	}
 };
 
 // ==========================================================
-// ⚙️ FONCTIONS INTERNES RE-INDEXÉES (OBFUSCATION / COMPILATION)
+// ⚙️ FONCTIONS SYSTEME INTERNES POUR CHARGEMENT & UNLOAD
 // ==========================================================
 const packageAlready = [];
-const spinner = "\\|/-";
-let count = 0;
 
 function loadScripts(folder, fileName, log, configCommands, api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getLang, rawCode) {
-	const storageCommandFilesPath = global.GoatBot[folder == "cmds" ? "commandFilesPath" : "eventCommandsFilesPath"];
-
 	try {
 		if (rawCode) {
-			fileName = fileName.slice(0, -3);
+			if (fileName.endsWith(".js")) fileName = fileName.slice(0, -3);
 			fs.writeFileSync(path.normalize(`${process.cwd()}/scripts/${folder}/${fileName}.js`), rawCode);
 		}
 		const regExpCheckPackage = /require(\s+|)\((\s+|)[`'"]([^`'"]+)[`'"]/g;
 		const { GoatBot } = global;
-		const { onFirstChat: allOnFirstChat, onChat: allOnChat, onEvent: allOnEvent, onAnyEvent: allOnAnyEvent } = GoatBot;
-		let setMap, typeEnvCommand, commandType;
-		if (folder == "cmds") {
-			typeEnvCommand = "envCommands";
-			setMap = "commands";
-			commandType = "command";
-		}
-		else if (folder == "events") {
-			typeEnvCommand = "envEvents";
-			setMap = "eventCommands";
-			commandType = "event command";
-		}
+		let setMap = folder == "cmds" ? "commands" : "eventCommands";
 		
-		let pathCommand;
-		if (process.env.NODE_ENV == "development") {
-			const devPath = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}.dev.js`);
-			if (fs.existsSync(devPath)) pathCommand = devPath;
-			else pathCommand = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}.js`);
-		}
-		else pathCommand = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}.js`);
+		let pathCommand = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}.js`);
+		if (!fs.existsSync(pathCommand)) pathCommand = path.normalize(process.cwd() + `/scripts/${folder}/${fileName}`);
 
 		const contentFile = fs.readFileSync(pathCommand, "utf8");
 		let allPackage = contentFile.match(regExpCheckPackage);
@@ -382,17 +427,9 @@ function loadScripts(folder, fileName, log, configCommands, api, threadModel, us
 				if (!packageAlready.includes(packageName)) {
 					packageAlready.push(packageName);
 					if (!fs.existsSync(`${process.cwd()}/node_modules/${packageName}`)) {
-						let wating;
 						try {
-							wating = setInterval(() => {
-								count++;
-								loading.info("PACKAGE", `Installing ${packageName} ${spinner[count % spinner.length]}`);
-							}, 80);
 							execSync(`npm install ${packageName} --save`, { stdio: "pipe" });
-							clearInterval(wating);
-						}
-						catch (error) {
-							clearInterval(wating);
+						} catch (error) {
 							throw new Error(`Can't install package ${packageName}`);
 						}
 					}
@@ -400,17 +437,6 @@ function loadScripts(folder, fileName, log, configCommands, api, threadModel, us
 			}
 		}
 
-		const oldCommand = require(pathCommand);
-		const oldCommandName = oldCommand?.config?.name;
-		if (!oldCommandName) {
-			if (GoatBot[setMap].get(oldCommandName)?.location != pathCommand)
-				throw new Error(`${commandType} name "${oldCommandName}" is already exist in command "${removeHomeDir(GoatBot[setMap].get(oldCommandName)?.location || "")}"`);
-		}
-		if (oldCommand.config.aliases) {
-			let oldAliases = oldCommand.config.aliases;
-			if (typeof oldAliases == "string") oldAliases = [oldAliases];
-			for (const alias of oldAliases) GoatBot.aliases.delete(alias);
-		}
 		delete require.cache[require.resolve(pathCommand)];
 
 		const command = require(pathCommand);
@@ -419,116 +445,14 @@ function loadScripts(folder, fileName, log, configCommands, api, threadModel, us
 		if (!configCommand || typeof configCommand != "object") throw new Error("config of command must be an object");
 		const scriptName = configCommand.name;
 
-		const indexOnChat = allOnChat.findIndex(item => item == oldCommandName);
-		if (indexOnChat != -1) allOnChat.splice(indexOnChat, 1);
-
-		const indexOnFirstChat = allOnChat.findIndex(item => item == oldCommandName);
-		let oldOnFirstChat;
-		if (indexOnFirstChat != -1) {
-			oldOnFirstChat = allOnFirstChat[indexOnFirstChat];
-			allOnFirstChat.splice(indexOnFirstChat, 1);
-		}
-
-		const indexOnEvent = allOnEvent.findIndex(item => item == oldCommandName);
-		if (indexOnEvent != -1) allOnEvent.splice(indexOnEvent, 1);
-
-		const indexOnAnyEvent = allOnAnyEvent.findIndex(item => item == oldCommandName);
-		if (indexOnAnyEvent != -1) allOnAnyEvent.splice(indexOnAnyEvent, 1);
-
-		if (command.onLoad) command.onLoad({ api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData });
-
-		const { envGlobal, envConfig } = configCommand;
-		if (!command.onStart) throw new Error('Function onStart is missing!');
-		if (typeof command.onStart != "function") throw new Error('Function onStart must be a function!');
-		if (!scriptName) throw new Error('Name of command is missing!');
-
-		if (configCommand.aliases) {
-			let { aliases } = configCommand;
-			if (typeof aliases == "string") aliases = [aliases];
-			for (const alias of aliases) {
-				if (aliases.filter(item => item == alias).length > 1) throw new Error(`alias "${alias}" duplicate in ${commandType} "${scriptName}"`);
-				if (GoatBot.aliases.has(alias)) throw new Error(`alias "${alias}" is already exist`);
-				GoatBot.aliases.set(alias, scriptName);
-			}
-		}
-
-		if (envGlobal) {
-			if (typeof envGlobal != "object" || Array.isArray(envGlobal)) throw new Error("envGlobal must be an object");
-			for (const key in envGlobal) configCommands.envGlobal[key] = envGlobal[key];
-		}
-		if (envConfig && typeof envConfig == "object" && !Array.isArray(envConfig)) {
-			if (!configCommands[typeEnvCommand][scriptName]) configCommands[typeEnvCommand][scriptName] = {};
-			configCommands[typeEnvCommand][scriptName] = envConfig;
-		}
-
-		GoatBot[setMap].delete(oldCommandName);
 		GoatBot[setMap].set(scriptName, command);
-		fs.writeFileSync(client.dirConfigCommands, JSON.stringify(configCommands, null, 2));
-
-		const keyUnloadCommand = folder == "cmds" ? "commandUnload" : "commandEventUnload";
-		const findIndex = (configCommands[keyUnloadCommand] || []).indexOf(`${fileName}.js`);
-		if (findIndex != -1) configCommands[keyUnloadCommand].splice(findIndex, 1);
-		fs.writeFileSync(client.dirConfigCommands, JSON.stringify(configCommands, null, 2));
-
-		if (command.onChat) allOnChat.push(scriptName);
-		if (command.onFirstChat) allOnFirstChat.push({ commandName: scriptName, threadIDsChattedFirstTime: oldOnFirstChat?.threadIDsChattedFirstTime || [] });
-		if (command.onEvent) allOnEvent.push(scriptName);
-		if (command.onAnyEvent) allOnAnyEvent.push(scriptName);
-
-		const indexStorageCommandFilesPath = storageCommandFilesPath.findIndex(item => item.filePath == pathCommand);
-		if (indexStorageCommandFilesPath != -1) storageCommandFilesPath.splice(indexStorageCommandFilesPath, 1);
-		storageCommandFilesPath.push({
-			filePath: pathCommand,
-			commandName: [scriptName, ...configCommand.aliases || []]
-		});
-
-		return { status: "success", name: fileName, command };
-	}
-	catch (err) {
-		const defaultError = new Error();
-		defaultError.name = err.name;
-		defaultError.message = err.message;
-		defaultError.stack = err.stack;
-		return { status: "failed", name: fileName, error: err, errorWithThoutRemoveHomeDir: defaultError };
+		return { status: "success", name: scriptName };
+	} catch (error) {
+		return { status: "failed", name: fileName, error };
 	}
 }
 
 function unloadScripts(folder, fileName, configCommands, getLang) {
-	const pathCommand = `${process.cwd()}/scripts/${folder}/${fileName}.js`;
-	if (!fs.existsSync(pathCommand)) {
-		const err = new Error(getLang("missingFile", `${fileName}.js`));
-		err.name = "FileNotFound";
-		throw err;
-	}
-	const command = require(pathCommand);
-	const commandName = command.config?.name;
-	if (!commandName) throw new Error(getLang("invalidFileName", `${fileName}.js`));
-	
-	const { GoatBot } = global;
-	const { onChat: allOnChat, onEvent: allOnEvent, onAnyEvent: allOnAnyEvent } = GoatBot;
-	
-	const indexOnChat = allOnChat.findIndex(item => item == commandName);
-	if (indexOnChat != -1) allOnChat.splice(indexOnChat, 1);
-	const indexOnEvent = allOnEvent.findIndex(item => item == commandName);
-	if (indexOnEvent != -1) allOnEvent.splice(indexOnEvent, 1);
-	const indexOnAnyEvent = allOnAnyEvent.findIndex(item => item == commandName);
-	if (indexOnAnyEvent != -1) allOnAnyEvent.splice(indexOnAnyEvent, 1);
-
-	if (command.config.aliases) {
-		let aliases = command.config?.aliases || [];
-		if (typeof aliases == "string") aliases = [aliases];
-		for (const alias of aliases) GoatBot.aliases.delete(alias);
-	}
-	const setMap = folder == "cmds" ? "commands" : "eventCommands";
-	delete require.cache[require.resolve(pathCommand)];
-	GoatBot[setMap].delete(commandName);
-
-	const commandUnload = configCommands[folder == "cmds" ? "commandUnload" : "commandEventUnload"] || [];
-	if (!commandUnload.includes(`${fileName}.js`)) commandUnload.push(`${fileName}.js`);
-	configCommands[folder == "cmds" ? "commandUnload" : "commandEventUnload"] = commandUnload;
-	fs.writeFileSync(global.client.dirConfigCommands, JSON.stringify(configCommands, null, 2));
-	return { status: "success", name: fileName };
-}
-
-global.utils.loadScripts = loadScripts;
-global.utils.unloadScripts = unloadScripts;
+	try {
+		const { GoatBot } = global;
+		let setMap = folder == "cmds" ? "commands" : "eventCommand
