@@ -1,17 +1,14 @@
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Impact&size=22&pause=2000&color=D4AF37&center=true&vCenter=true&width=600&lines=%E2%9C%A8+Created+with+Magic+by+Celestin+%E2%9C%A8" alt="Created by Celestin" />
+  <img src="https://readme-typing-svg.demolab.com?font=Impact&size=26&pause=1000&color=D4AF37&center=true&vCenter=true&width=700&lines=%E2%9C%A8+Created+with+Magic+by+Celestin+%E2%9C%A8;%E2%9A%A1+CASSIDY+BOT+S'EVEILLE...+%E2%9A%A1;%F0%9F%AA8+CASSIDY+BOT...+%F0%9F%AA8;%E2%9C%A8+L'art+est+une+explosion...+%E2%9C%A8;%F0%9F%8D%A5+Le+Ninjutsu+Ultime+de+Messenger..." alt="Typing Effect Magic" />
 </p>
 <p align="center">
-  <img src="https://i.imgur.com/Ko9jlya.gif" alt="Cassidy Bot Banner" width="100%">
+  <img src="https://i.imgur.com/Ko9jlya.gif" alt="Cassidy Bot Banner" width="100%" height="auto">
 </p>
 <p align="center">
-  <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BwNXZnd3E3eXNtcXN6M3I0OHZjd3E4bW9waXNidmpxY2Z5OHBpbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/Xw3vAEvb6LpB4i1NMc/giphy.gif" width="100%">
-</p>
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Impact&size=26&pause=2000&color=D4AF37&center=true&vCenter=true&width=600&lines=%E2%9C%A8+L'art+est+une+explosion...+%E2%9C%A8;%E2%A4%B3+Cassidy+Bot+S'veille...;%E2%9A%A1+Puissance+%E2%80%A2+Style+%E2%80%A2+Performance+%E2%9A%A1;%F0%9F%8D%A5+Le+Ninjutsu+Ultime+de+Messenger..." alt="Typing Effect" />
+  <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3BwNXZnd3E3eXNtcXN6M3I0OHZjd3E4bW9waXNidmpxY2Z5OHBpbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/Xw3vAEvb6LpB4i1NMc/giphy.gif" width="100%" height="auto">
 </p>
 <h1 align="center">
-  ✨ <span style="color:#D4AF37; font-family:'Impact', sans-serif; font-size: 42px; text-shadow: 3px 3px 10px rgba(0,0,0,0.8);">CASSIDY BOT</span> ✨
+  ✨ <span style="color:#D4AF37; font-family:'Impact', sans-serif; font-size: 50px; text-shadow: 3px 3px 10px rgba(0,0,0,0.8);">CASSIDY BOT</span> ✨
 </h1>
 <p align="center" style="font-family:'Arial', sans-serif; font-weight: bold; color:#FFF; letter-spacing: 1.5px;">
   🖤 <span style="color:#D4AF37;">L'OMBRE ET LA LUMIÈRE</span> • L'AVENTURE NINJA COMMENCE ICI 🖤
@@ -30,6 +27,14 @@
 * 💬 **Genjutsu Automatique** | Des réponses instantanées, fluides et naturelles.
 * 📩 **Messages Secrets** | Expédition des réponses directement en mode privé.
 * ⚙️ **Sceaux Interdits** | Des outils de modération et des commandes avancées pour les admins.
+---
+## 📖 L'HISTOIRE DES COMMANDES (ALLIANCE DU NINJUTSU ET DE LA TECHNOLOGIE)
+> *"Au commencement, le chaos régnait dans les conversations. C'est alors que Celestin associa le Chakra ancestral à la haute technologie pour forger les algorithmes sacrés et canaliser l'énergie du chat..."*
+Chaque commande de **Cassidy Bot** est née de la fusion entre la magie Shinobi et le code informatique :
+* 🌀 **Le Parchemin du Ninjutsu (`!ai`)** : L'alliance ultime entre le Genjutsu et les réseaux de neurones artificiels pour répondre aux mystères du monde.
+* ⚡ **Le Sceau de Vitesse (`!ping`)** : Une technique de déplacement instantané exploitant la faible latence des serveurs modernes.
+* 🎮 **L'Épreuve du Destin (`!quiz`)** : Un programme interactif et ludique conçu pour tester la sagesse et la réactivité des ninjas du groupe.
+* 👑 **Le Sceau Interdit du Kage (`!ban` / `!mute`)** : Un protocole de sécurité et de modération automatique réservé aux administrateurs pour maintenir la paix.
 ---
 ## 🔥 ARSENAL DE COMPÉTENCES
 * ⚔️ **Commandes Shinobi :** Invoquez la puissance de Naruto, Sasuke, Gojo et bien d'autres.
