@@ -150,6 +150,7 @@ module.exports = {
 		author: "NTKhang + Celestin 👑 (Canvas Edition)",
 		countDown: 5,
 		role: 2,
+		usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
 		description: {
 			en: "Manage admin system with visual cards"
 		},
@@ -278,3 +279,4 @@ module.exports = {
 		}
 	}
 };
+		
