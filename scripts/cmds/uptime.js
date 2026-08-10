@@ -1,8 +1,9 @@
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const fs = require('fs-extra');
 const path = require('path');
 const os = require("os");
 const moment = require("moment-timezone");
+const axios = require('axios');
 
 // ==========================================
 // 🎨 ENGIN CANVAS POUR LE BADGE SYSTEM UPTIME
@@ -34,29 +35,49 @@ async function generateUptimeCanvas(userId, userName, botUpt, serverUpt, cpu, ra
 	ctx.fillText("✧ ▬▭▬ ▬▬ ✦ ▬▬ ▬▭▬ ✧", 420, 425);
 
 	// Incrustation de l'avatar Facebook de l'utilisateur
-	const avatarUrl = `https://graph.facebook.com/${userId}/picture?width=300&height=300&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+	const avatarX = 190;
+	const avatarY = 240;
+	const avatarRadius = 110;
+
+	let imgLoaded = false;
 	try {
-		const userAvatar = await loadImage(avatarUrl);
+		const avatarUrl = `https://graph.facebook.com/${userId}/picture?width=300&height=300&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+		const res = await axios.get(avatarUrl, { responseType: 'arraybuffer', timeout: 4000 });
+		const userAvatar = await loadImage(Buffer.from(res.data));
+
 		ctx.save();
 		ctx.beginPath();
-		ctx.arc(190, 240, 110, 0, Math.PI * 2, true);
+		ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2, true);
 		ctx.closePath();
 		ctx.clip();
-		ctx.drawImage(userAvatar, 80, 130, 220, 220);
+		ctx.drawImage(userAvatar, avatarX - avatarRadius, avatarY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
 		ctx.restore();
-
-		// Anneau lumineux néon
-		ctx.strokeStyle = '#00f5d4';
-		ctx.lineWidth = 6;
-		ctx.beginPath();
-		ctx.arc(190, 240, 112, 0, Math.PI * 2);
-		ctx.stroke();
+		imgLoaded = true;
 	} catch (e) {
-		ctx.fillStyle = '#00f5d4';
-		ctx.beginPath(); ctx.arc(190, 240, 110, 0, Math.PI * 2); ctx.fill();
+		imgLoaded = false;
 	}
 
+	if (!imgLoaded) {
+		ctx.fillStyle = '#0d0b18';
+		ctx.beginPath();
+		ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
+		ctx.fill();
+
+		ctx.fillStyle = '#00f5d4';
+		ctx.font = 'bold 50px "Sans-Serif"';
+		ctx.textAlign = 'center';
+		ctx.fillText("📊", avatarX, avatarY + 15);
+	}
+
+	// Anneau lumineux néon
+	ctx.strokeStyle = '#00f5d4';
+	ctx.lineWidth = 6;
+	ctx.beginPath();
+	ctx.arc(avatarX, avatarY, avatarRadius + 2, 0, Math.PI * 2);
+	ctx.stroke();
+
 	// --- ÉCRITURE DES DONNÉES SUR L'IMAGE ---
+	ctx.textAlign = 'left';
 	ctx.fillStyle = '#00f5d4';
 	ctx.font = 'bold 36px "Sans-Serif"';
 	ctx.fillText("📊 STATUTS ET COEFFICIENTS", 420, 120);
@@ -77,10 +98,10 @@ async function generateUptimeCanvas(userId, userName, botUpt, serverUpt, cpu, ra
 	ctx.font = 'italic 16px "Sans-Serif"';
 	ctx.fillText(`⏰ ${time}`, 420, 385);
 
-	const tmpDir = path.join(__dirname, "..", "cache");
+	const tmpDir = path.join(__dirname, "cache");
 	await fs.ensureDir(tmpDir);
 	const imagePath = path.join(tmpDir, `uptime_${Date.now()}_${userId}.png`);
-	fs.writeFileSync(imagePath, canvas.toBuffer('image/png'));
+	await fs.outputFile(imagePath, canvas.toBuffer('image/png'));
 	return imagePath;
 }
 
@@ -88,9 +109,10 @@ module.exports = {
 	config: {
 		name: "uptime",
 		aliases: ["upt", "up"],
-		version: "4.0",
+		version: "4.1",
 		author: "Messie x Célestin 🔥 (Canvas Edition)",
 		role: 0,
+		usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
 		category: "system",
 		shortDescription: {
 			en: "System status printed on Canvas"
@@ -100,7 +122,7 @@ module.exports = {
 	onStart: async ({ api, event, usersData }) => {
 		try {
 			const senderID = event.senderID;
-			const userName = await usersData.getName(senderID);
+			const userName = await usersData.getName(senderID).catch(() => "Utilisateur");
 
 			// Formatage de l'Uptime
 			const format = (s) => {
@@ -151,3 +173,4 @@ module.exports = {
 		return api.sendMessage("📊 Utilise uptime pour générer ton rapport système complet.", event.threadID);
 	}
 };
+		
