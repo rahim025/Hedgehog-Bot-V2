@@ -1,5 +1,7 @@
+"use strict";
+
 const moment = require("moment-timezone");
-const { createCanvas } = require('canvas');
+const { createCanvas, loadImage } = require('canvas');
 const fs = require('fs-extra');
 const path = require('path');
 
@@ -10,7 +12,6 @@ async function generateStatusCanvas(title, messageText, isError = true) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // Fond dégradé Matrix-Saturé sombre
   let gradient = ctx.createLinearGradient(0, 0, width, height);
   gradient.addColorStop(0, '#020205');
   gradient.addColorStop(0.5, '#070b19');
@@ -18,7 +19,6 @@ async function generateStatusCanvas(title, messageText, isError = true) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  // Double Bordure Technologique (Style Néon)
   ctx.strokeStyle = isError ? 'rgba(255, 59, 48, 0.2)' : 'rgba(0, 122, 255, 0.2)';
   ctx.lineWidth = 8;
   ctx.strokeRect(15, 15, width - 30, height - 30);
@@ -27,18 +27,15 @@ async function generateStatusCanvas(title, messageText, isError = true) {
   ctx.lineWidth = 2;
   ctx.strokeRect(22, 22, width - 44, height - 44);
 
-  // Titre avec effet de lueur simulé
   ctx.fillStyle = isError ? '#ff3b30' : '#00e5ff';
   ctx.font = 'bold 26px "Sans-Serif"';
   ctx.textAlign = 'center';
   ctx.fillText(title, width / 2, 75);
 
-  // Séparateur Lumineux
   ctx.fillStyle = isError ? 'rgba(255, 45, 85, 0.4)' : 'rgba(0, 229, 255, 0.4)';
   ctx.font = '13px "Sans-Serif"';
   ctx.fillText("✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧", width / 2, 115);
 
-  // Bloc de texte principal
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 16px "Sans-Serif"';
   const lines = messageText.split('\n');
@@ -47,7 +44,6 @@ async function generateStatusCanvas(title, messageText, isError = true) {
     ctx.fillText(lines[i], width / 2, startY + (i * 30));
   }
 
-  // Footer HUD
   const footerY = height - 45;
   ctx.fillStyle = isError ? 'rgba(255, 45, 85, 0.3)' : 'rgba(0, 229, 255, 0.3)';
   ctx.fillText("✧ ▬▭▬ ▬▭▬ ✦✧✦ ▬▭▬ ▬▭▬ ✧", width / 2, footerY - 10);
@@ -62,11 +58,11 @@ async function generateStatusCanvas(title, messageText, isError = true) {
   return imagePath;
 }
 
-// 2. CANVAS DE LISTE DES DEMANDES (GRAND PORTRAIT SCI-FI)
+// 2. CANVAS DE LISTE DES DEMANDES AVEC PHOTO DE PROFIL À CÔTÉ DE CHAQUE USER
 async function generateListCanvas(listRequest) {
-  const width = 600;
+  const width = 650;
   const startY = 160;
-  const rowHeight = 68;
+  const rowHeight = 75; // Ligne élargie pour accueillir confortablement les avatars
   const baseFooterHeight = 100;
   
   const height = startY + (Math.max(listRequest.length, 1) * rowHeight) + baseFooterHeight;
@@ -80,18 +76,19 @@ async function generateListCanvas(listRequest) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  // Bordures extérieures lumineuses cyan
+  // Bordures extérieures cyan
   ctx.strokeStyle = '#00e5ff';
   ctx.lineWidth = 3;
   ctx.strokeRect(18, 18, width - 36, height - 36);
 
-  // Coins stylisés typiques des HUD tactiques
+  // Coins stylisés
   ctx.fillStyle = '#00e5ff';
-  ctx.fillRect(13, 13, 20, 4); ctx.fillRect(13, 13, 4, 20); // Top-Left
-  ctx.fillRect(width - 33, 13, 20, 4); ctx.fillRect(width - 17, 13, 4, 20); // Top-Right
+  ctx.fillRect(13, 13, 20, 4); ctx.fillRect(13, 13, 4, 20);
+  ctx.fillRect(width - 33, 13, 20, 4); ctx.fillRect(width - 17, 13, 4, 20);
 
+  // Titre principal
   ctx.fillStyle = '#00e5ff';
-  ctx.font = 'bold 28px "Sans-Serif"';
+  ctx.font = 'bold 24px "Sans-Serif"';
   ctx.textAlign = 'center';
   ctx.fillText("🎯 REQUÊTES FLUX RÉSEAU", width / 2, 70);
 
@@ -101,7 +98,7 @@ async function generateListCanvas(listRequest) {
 
   ctx.fillStyle = '#8e8e93';
   ctx.font = '12px "Sans-Serif"';
-  ctx.fillText(`FALCON ENGINE v4.0  //  INBOUND: ${listRequest.length} TARGETS`, width / 2, 130);
+  ctx.fillText(`FALCON ENGINE v4.0 BY CÉLESTIN  //  ${listRequest.length} TARGETS`, width / 2, 130);
 
   if (listRequest.length === 0) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
@@ -112,30 +109,70 @@ async function generateListCanvas(listRequest) {
       const user = listRequest[i].node;
       const currentY = startY + (i * rowHeight);
 
-      // Fond de ligne vitré
+      // Fond de ligne
       ctx.fillStyle = 'rgba(0, 229, 255, 0.02)';
-      ctx.fillRect(40, currentY, width - 80, 56);
+      ctx.fillRect(40, currentY, width - 80, 64);
       ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(40, currentY, width - 80, 56);
+      ctx.strokeRect(40, currentY, width - 80, 64);
 
-      // Tag d'indexation
+      // Tag numéro [1], [2], ...
       ctx.textAlign = 'center';
       ctx.fillStyle = '#00e5ff';
       ctx.font = 'bold 15px "Sans-Serif"';
-      ctx.fillText(`[${i + 1}]`, 65, currentY + 34);
+      ctx.fillText(`[${i + 1}]`, 65, currentY + 38);
 
-      // Infos textuelles alignées à gauche
+      // --- RENDU DE LA PHOTO DE PROFIL DE L'UTILISATEUR ---
+      const avatarX = 115;
+      const avatarY = currentY + 32;
+      const avatarRadius = 22;
+
+      let userAvatar;
+      try {
+        const avatarUrl = `https://graph.facebook.com/${user.id}/picture?width=150&height=150&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        userAvatar = await loadImage(avatarUrl);
+      } catch (e) {
+        userAvatar = null;
+      }
+
+      if (userAvatar) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2, true);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(userAvatar, avatarX - avatarRadius, avatarY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
+        ctx.restore();
+
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(avatarX, avatarY, avatarRadius + 1, 0, Math.PI * 2, true);
+        ctx.stroke();
+      } else {
+        // Fallback avec l'initiale de l'utilisateur
+        ctx.fillStyle = '#00e5ff';
+        ctx.beginPath();
+        ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2, true);
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 16px "Sans-Serif"';
+        ctx.textAlign = 'center';
+        ctx.fillText((user.name ? user.name[0] : '?').toUpperCase(), avatarX, avatarY + 6);
+      }
+
+      // Nom & UID décalés à droite de l'avatar
       ctx.textAlign = 'left';
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 14px "Sans-Serif"';
       let name = user.name || "Unknown Identity";
-      if (name.length > 25) name = name.substring(0, 23) + "..";
-      ctx.fillText(name, 110, currentY + 24);
+      if (name.length > 22) name = name.substring(0, 20) + "..";
+      ctx.fillText(name, 150, currentY + 28);
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.font = '11px "Sans-Serif"';
-      ctx.fillText(`UID // ${user.id}`, 110, currentY + 44);
+      ctx.fillText(`UID // ${user.id}`, 150, currentY + 48);
     }
   }
 
@@ -161,11 +198,12 @@ module.exports = {
     name: "accept",
     aliases: ['acp'],
     version: "4.0",
-    author: "Loid Butter & AI",
+    author: "Célestin",
     countDown: 20,
     role: 2,
+    usePrefix: false, // MODE SANS PRÉFIXE
     shortDescription: "Manage friend requests",
-    longDescription: "Accept or delete friend requests with a clean cyber HUD style",
+    longDescription: "Accept or delete friend requests with a clean cyber HUD style and profile picture for each user",
     category: "Utility",
   },
 
@@ -250,7 +288,7 @@ module.exports = {
     }
 
     if (success.length > 0) {
-      const statusText = `Synchronisation réseau terminée.\nProfils valides : ${success.length}\nÉchecs enregistrés : ${failed.length}`;
+      const statusText = `Synchronisation réseau terminée par Célestin.\nProfils valides : ${success.length}\nÉchecs enregistrés : ${failed.length}`;
       const imagePath = await generateStatusCanvas("OPERATION COMPLETE", statusText, false);
       
       api.sendMessage({
