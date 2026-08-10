@@ -1,7 +1,7 @@
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 const moment = require("moment-timezone");
-const { createCanvas, loadImage } = require("canvas");
+const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const axios = require("axios");
 
 const deltaNext = 5;
@@ -24,19 +24,19 @@ function formatMoney(value) {
 // Cache des avatars
 const avatarCache = new Map();
 
-// Récupération sécurisée des avatars
+// Récupération sécurisée des avatars via Buffer
 async function fetchAvatarSafe(userID, usersData) {
   if (avatarCache.has(userID)) return avatarCache.get(userID);
 
   try {
-    let avatarURL = await usersData.getAvatarUrl(userID);
+    let avatarURL = await usersData.getAvatarUrl?.(userID);
     if (!avatarURL) {
       avatarURL = `https://graph.facebook.com/${userID}/picture?type=large&width=500&height=500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
     }
     avatarURL += avatarURL.includes("?") ? "&" : "?";
     avatarURL += `t=${Date.now()}`;
 
-    const res = await axios.get(avatarURL, { responseType: "arraybuffer", timeout: 10000 });
+    const res = await axios.get(avatarURL, { responseType: "arraybuffer", timeout: 8000 });
     const img = await loadImage(Buffer.from(res.data));
     avatarCache.set(userID, img);
     return img;
@@ -72,7 +72,7 @@ function roundRect(ctx, x, y, w, h, r) {
   return ctx;
 }
 
-// --- Variable globale pour le wallpaper ---
+// Variable globale pour le wallpaper
 let wallpaper = null;
 
 // Dessiner le tableau des tops
@@ -81,11 +81,10 @@ async function drawTopBoard(users, type, usersData) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext("2d");
 
-  // Fond : wallpaper ou gradient moderne de transition profonde
+  // Fond : wallpaper ou gradient moderne
   if (wallpaper && fs.existsSync(wallpaper)) {
     const bgImg = await loadImage(wallpaper);
     ctx.drawImage(bgImg, 0, 0, W, H);
-    // Overlay sombre pour garantir que le texte ressorte parfaitement
     ctx.fillStyle = "rgba(10, 10, 25, 0.75)";
     ctx.fillRect(0, 0, W, H);
   } else {
@@ -97,7 +96,7 @@ async function drawTopBoard(users, type, usersData) {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // --- Grille holographique en arrière-plan ---
+  // Grille holographique
   ctx.strokeStyle = "rgba(0, 255, 234, 0.03)";
   ctx.lineWidth = 1;
   for (let i = 0; i < W; i += 50) {
@@ -107,17 +106,17 @@ async function drawTopBoard(users, type, usersData) {
     ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(W, j); ctx.stroke();
   }
 
-  // En-tête / Titre Stylisé
+  // En-tête / Titre
   ctx.save();
   ctx.shadowColor = type === "rank" ? "#ff007f" : "#00f0ff";
   ctx.shadowBlur = 30;
-  ctx.font = "bold 52px 'Segoe UI', Arial, sans-serif";
+  ctx.font = "bold 52px sans-serif";
   ctx.fillStyle = type === "rank" ? "#ff007f" : "#00f0ff";
   ctx.textAlign = "center";
   ctx.fillText(type === "rank" ? "🏆 LEADERBOARD CLASSEMENT" : "💰 CLASSEMENT FORTUNES", W / 2, 90);
   ctx.restore();
 
-  // Barre décorative sous le titre
+  // Barre sous le titre
   const titleGrad = ctx.createLinearGradient(W/2 - 200, 0, W/2 + 200, 0);
   titleGrad.addColorStop(0, "rgba(0, 240, 255, 0)");
   titleGrad.addColorStop(0.5, type === "rank" ? "#ff007f" : "#00f0ff");
@@ -125,18 +124,17 @@ async function drawTopBoard(users, type, usersData) {
   ctx.fillStyle = titleGrad;
   ctx.fillRect(W/2 - 250, 110, 500, 3);
 
-  // Configuration du Podium (Top 3)
+  // Top 3 Podium
   const positions = [
-    { i: 0, x: W / 2 - 95, y: 155, size: 190, color: "#FFD700", rankText: "👑 1er", glow: "#FFD700" }, // 1er
-    { i: 1, x: W / 2 - 320, y: 205, size: 150, color: "#C0C0C0", rankText: "🥈 2e", glow: "#00bfff" },  // 2e
-    { i: 2, x: W / 2 + 170, y: 205, size: 150, color: "#CD7F32", rankText: "🥉 3e", glow: "#ff4500" },  // 3e
+    { i: 0, x: W / 2 - 95, y: 155, size: 190, color: "#FFD700", rankText: "👑 1er", glow: "#FFD700" },
+    { i: 1, x: W / 2 - 320, y: 205, size: 150, color: "#C0C0C0", rankText: "🥈 2e", glow: "#00bfff" },
+    { i: 2, x: W / 2 + 170, y: 205, size: 150, color: "#CD7F32", rankText: "🥉 3e", glow: "#ff4500" },
   ];
 
   for (const pos of positions) {
     const u = users[pos.i]; if (!u) continue;
     let avatar = await fetchAvatarSafe(u.userID, usersData).catch(() => createCanvas(pos.size, pos.size));
     
-    // Zone d'ombrage et de lueur circulaire pour l'avatar du podium
     ctx.save();
     ctx.shadowColor = pos.glow;
     ctx.shadowBlur = 25;
@@ -147,7 +145,6 @@ async function drawTopBoard(users, type, usersData) {
     ctx.stroke();
     ctx.restore();
 
-    // Clip de l'Avatar dans un masque rond
     ctx.save();
     ctx.beginPath();
     ctx.arc(pos.x + pos.size / 2, pos.y + pos.size / 2, pos.size / 2, 0, Math.PI * 2);
@@ -155,30 +152,26 @@ async function drawTopBoard(users, type, usersData) {
     ctx.drawImage(avatar, pos.x, pos.y, pos.size, pos.size);
     ctx.restore();
 
-    // Fond de nom textuel pour plus de lisibilité
     ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     roundRect(ctx, pos.x - 20, pos.y + pos.size + 15, pos.size + 40, 100, 12).fill();
 
-    // Nom de l'utilisateur
-    ctx.font = "bold 24px 'Segoe UI', Arial, sans-serif";
+    ctx.font = "bold 24px sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     const displayName = u.name ? (u.name.length > 13 ? u.name.slice(0, 11) + "…" : u.name) : "Inconnu";
     ctx.fillText(displayName, pos.x + pos.size / 2, pos.y + pos.size + 45);
 
-    // Rang du podium
-    ctx.font = "bold 20px 'Segoe UI', Arial, sans-serif";
+    ctx.font = "bold 20px sans-serif";
     ctx.fillStyle = pos.color;
     ctx.fillText(pos.rankText, pos.x + pos.size / 2, pos.y + pos.size + 73);
 
-    // Score / Valeur (Level ou Argent)
-    ctx.font = "bold 18px 'Segoe UI', Arial, sans-serif";
+    ctx.font = "bold 18px sans-serif";
     ctx.fillStyle = "#00ffb7";
     const value = type === "rank" ? `Nv ${expToLevel(Number(u.totalExp || 0))}` : `${formatMoney(Number(u.money || 0))} 💵`;
     ctx.fillText(value, pos.x + pos.size / 2, pos.y + pos.size + 100);
   }
 
-  // Liste pour les places 4 à 10
+  // Places 4 à 10
   const startY = 490;
   const rowH = 65;
   const avatarSize = 48;
@@ -187,24 +180,20 @@ async function drawTopBoard(users, type, usersData) {
     const u = users[i];
     const y = startY + (i - 3) * rowH;
 
-    // Dégradé de fond pour chaque carte de joueur
     const cardGrad = ctx.createLinearGradient(100, y - 30, W - 100, y - 30);
     cardGrad.addColorStop(0, "rgba(20, 20, 45, 0.75)");
     cardGrad.addColorStop(1, "rgba(5, 5, 15, 0.4)");
     ctx.fillStyle = cardGrad;
     roundRect(ctx, 80, y - 28, W - 160, rowH - 12, 10).fill();
 
-    // Petite bordure décorative néon à gauche de chaque conteneur
     ctx.fillStyle = type === "rank" ? "#ff007f" : "#00f0ff";
     roundRect(ctx, 80, y - 28, 6, rowH - 12, 2).fill();
 
-    // Position numérique
-    ctx.font = "bold 24px 'Segoe UI', Arial, sans-serif";
+    ctx.font = "bold 24px sans-serif";
     ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
     ctx.textAlign = "left";
     ctx.fillText(`#${i + 1}`, 110, y + 12);
 
-    // Chargement de l'avatar miniature
     let avatar = await fetchAvatarSafe(u.userID, usersData).catch(() => createCanvas(avatarSize, avatarSize));
     ctx.save();
     ctx.beginPath();
@@ -213,38 +202,34 @@ async function drawTopBoard(users, type, usersData) {
     ctx.drawImage(avatar, 200, y - 18, avatarSize, avatarSize);
     ctx.restore();
 
-    // Contour lumineux sur l'avatar miniature
     ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(200 + avatarSize / 2, y - 18 + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Nom de l'utilisateur
-    ctx.font = "bold 22px 'Segoe UI', Arial, sans-serif";
+    ctx.font = "bold 22px sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "left";
     const nameLimit = u.name ? (u.name.length > 22 ? u.name.slice(0, 20) + "…" : u.name) : "Inconnu";
     ctx.fillText(nameLimit, 275, y + 12);
 
-    // Score affiché à droite de la carte
-    ctx.font = "bold 20px 'Segoe UI', Arial, sans-serif";
+    ctx.font = "bold 20px sans-serif";
     ctx.fillStyle = "#00ffb7";
     ctx.textAlign = "right";
     const value = type === "rank" ? `Nv ${expToLevel(Number(u.totalExp || 0))} (${u.totalExp || 0} XP)` : `${formatMoney(Number(u.money || 0))} 💵`;
     ctx.fillText(value, W - 120, y + 12);
   }
 
-  // Footer / Horodatage de génération
-  ctx.font = "16px 'Segoe UI', Arial, sans-serif";
+  ctx.font = "16px sans-serif";
   ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
   ctx.textAlign = "center";
   ctx.fillText(`🕓 Généré le: ${moment().tz("Africa/Abidjan").format("YYYY-MM-DD à HH:mm:ss")}`, W / 2, H - 25);
 
   const fileName = `top_${type}_${Date.now()}.png`;
   const filePath = path.join(__dirname, "cache", fileName);
-  if (!fs.existsSync(path.dirname(filePath))) fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, canvas.toBuffer("image/png"));
+  await fs.ensureDir(path.dirname(filePath));
+  await fs.outputFile(filePath, canvas.toBuffer("image/png"));
   return filePath;
 }
 
@@ -252,14 +237,15 @@ async function drawTopBoard(users, type, usersData) {
 module.exports = {
   config: {
     name: "top",
-    version: "3.3",
-    author: "Christus",
+    version: "3.4",
+    author: "Christus x Célestin",
     countDown: 10,
     role: 0,
+    usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
     shortDescription: "Afficher le top 10 Classement/Argent avec wallpaper",
     category: "rank",
     guide: {
-      en: "{pn} rank | money | setwall"
+      fr: "{pn} rank | money | setwall"
     }
   },
 
@@ -273,18 +259,22 @@ module.exports = {
           return message.reply("❌ Vous devez répondre à une image pour définir le wallpaper.");
         const imageUrl = messageReply.attachments[0].url;
         try {
-          const cacheDir = path.join(__dirname, "cache"); if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+          const cacheDir = path.join(__dirname, "cache"); 
+          await fs.ensureDir(cacheDir);
           const wallPath = path.join(cacheDir, `wallpaper_${senderID}.jpg`);
           const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-          fs.writeFileSync(wallPath, response.data);
+          await fs.outputFile(wallPath, Buffer.from(response.data));
           wallpaper = wallPath;
           return message.reply("✅ Arrière-plan personnalisé défini avec succès !");
-        } catch (err) { console.error(err); return message.reply("❌ Impossible de définir l'arrière-plan."); }
+        } catch (err) { 
+          console.error(err); 
+          return message.reply("❌ Impossible de définir l'arrière-plan."); 
+        }
       }
 
       // --- Handle rank/money ---
       const type = args[0]?.toLowerCase();
-      if (!["rank", "money"].includes(type)) return message.reply("⚠️ Utilisation : /top rank ou /top money");
+      if (!["rank", "money"].includes(type)) return message.reply("⚠️ Utilisation : top rank ou top money");
 
       const allUsers = await usersData.getAll();
       let sorted = type === "rank" ?
@@ -301,7 +291,15 @@ module.exports = {
         body += `${medal} ${u.name || "Inconnu"} — ${value}\n`;
       }
 
-      message.reply({ body, attachment: fs.createReadStream(filePath) });
-    } catch (err) { console.error(err); message.reply("❌ Une erreur est survenue lors de la génération du classement."); }
+      return message.reply({ 
+        body, 
+        attachment: fs.createReadStream(filePath) 
+      }, () => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      });
+    } catch (err) { 
+      console.error(err); 
+      return message.reply("❌ Une erreur est survenue lors de la génération du classement."); 
+    }
   }
 };
