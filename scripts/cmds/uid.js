@@ -1,13 +1,16 @@
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const fs = require('fs-extra');
+const path = require('path');
+const axios = require('axios');
 
 module.exports = {
 	config: {
 		name: "uid",
-		version: "3.1",
-		author: "Modifié",
+		version: "3.2",
+		author: "Modifié x Célestin",
 		countDown: 5,
 		role: 0,
+		usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
 		description: {
 			vi: "Xem user id và tên bằng ảnh canvas",
 			en: "View facebook user id and name with a canvas image"
@@ -19,24 +22,27 @@ module.exports = {
 		}
 	},
 
-	onStart: async function ({ message, event, args }) {
+	onStart: async function ({ message, event, args, usersData }) {
 		let targetID = event.senderID;
-		let targetName = "SUBJECT_UNKNOWN";
+		let targetName = "USER_OPERATOR";
 
-		// Détermination de la cible et extraction du nom si disponible
+		// Détermination de la cible et extraction du nom
 		if (event.messageReply) {
 			targetID = event.messageReply.senderID;
-			// Essaye de récupérer le nom via le système de reply ou laisse le placeholder
-			targetName = "REPLY_TARGET";
 		} else if (Object.keys(event.mentions).length > 0) {
 			targetID = Object.keys(event.mentions)[0];
-			// Nettoyage du nom (enlève le '@')
-			targetName = event.mentions[targetID].replace("@", "").toUpperCase();
 		} else if (args[0] && !isNaN(args[0])) {
 			targetID = args[0];
-		} else {
-			// Si c'est l'utilisateur lui-même, on peut essayer d'extraire son nom global
-			targetName = "USER_OPERATOR";
+		}
+
+		// Récupération dynamique du nom réel de l'utilisateur
+		if (usersData && usersData.getName) {
+			try {
+				const fetchedName = await usersData.getName(targetID);
+				if (fetchedName) targetName = fetchedName.toUpperCase();
+			} catch (e) {
+				// Utilisation du nom par défaut si échec
+			}
 		}
 
 		const avatarURL = `https://graph.facebook.com/${targetID}/picture?width=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
@@ -73,12 +79,23 @@ module.exports = {
 			ctx.fillRect(15, 329, 20, 6);  ctx.fillRect(15, 315, 6, 20);
 			ctx.fillRect(815, 329, 20, 6); ctx.fillRect(829, 315, 6, 20);
 
-			// Chargement Avatar
+			// Chargement Avatar via Buffer / Axios pour garantir la stabilité
 			let avatarImage;
 			try {
-				avatarImage = await loadImage(avatarURL);
+				const res = await axios.get(avatarURL, { responseType: 'arraybuffer', timeout: 4000 });
+				avatarImage = await loadImage(Buffer.from(res.data));
 			} catch (error) {
-				avatarImage = await loadImage(fallbackAvatar);
+				try {
+					const fallbackRes = await axios.get(fallbackAvatar, { responseType: 'arraybuffer', timeout: 4000 });
+					avatarImage = await loadImage(Buffer.from(fallbackRes.data));
+				} catch (err) {
+					// Alternative si échec réseau total
+					const dummyCanvas = createCanvas(230, 200);
+					const dummyCtx = dummyCanvas.getContext('2d');
+					dummyCtx.fillStyle = '#0055ff';
+					dummyCtx.fillRect(0, 0, 230, 200);
+					avatarImage = dummyCanvas;
+				}
 			}
 
 			// Masque Octogonal Cyber
@@ -102,32 +119,30 @@ module.exports = {
 			// --- TEXTES INTERFACE ---
 			
 			// Tag système du haut
-			ctx.font = "11px monospace";
+			ctx.font = "11px sans-serif";
 			ctx.fillStyle = "rgba(0, 212, 255, 0.6)";
 			ctx.fillText("SYSTEM // IDENTITY_DATA_CORE", 350, 85);
 
 			// AFFICHAGE DU NOM (En gros, style robotique blanc)
-			ctx.font = "bold 38px Impact";
+			ctx.font = "bold 34px sans-serif";
 			ctx.fillStyle = "#ffffff";
-			ctx.fillText(targetName, 350, 135);
+			const cleanName = targetName.length > 18 ? targetName.substring(0, 16) + "..." : targetName;
+			ctx.fillText(cleanName, 350, 135);
 
-			// Separateur tech
+			// Séparateur tech
 			ctx.strokeStyle = "rgba(0, 85, 255, 0.3)";
 			ctx.lineWidth = 2;
 			ctx.beginPath(); ctx.moveTo(350, 155); ctx.lineTo(780, 155); ctx.stroke();
 
 			// Label UID
-			ctx.font = "12px monospace";
+			ctx.font = "12px sans-serif";
 			ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
 			ctx.fillText("SECURE_ACCESS_ID:", 350, 185);
 
-			// Valeur UID (Lueur néon bleu)
-			ctx.shadowColor = "#00d4ff";
-			ctx.shadowBlur = 12;
-			ctx.font = "bold 38px monospace";
+			// Valeur UID
+			ctx.font = "bold 36px sans-serif";
 			ctx.fillStyle = "#00d4ff"; 
 			ctx.fillText(`> ${targetID}`, 350, 230);
-			ctx.shadowBlur = 0; // Reset lueur
 
 			// Barre de statut du bas
 			ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
@@ -135,18 +150,22 @@ module.exports = {
 			ctx.fillStyle = "#0055ff";
 			ctx.fillRect(350, 265, 380, 6); 
 
-			// Exportation du fichier
-			const pathImg = __dirname + `/cache/uid_${targetID}.png`;
-			const buffer = canvas.toBuffer();
-			await fs.outputFile(pathImg, buffer);
+			// Exportation du fichier temporaire
+			const tmpDir = path.join(__dirname, 'cache');
+			await fs.ensureDir(tmpDir);
+			const pathImg = path.join(tmpDir, `uid_${Date.now()}_${targetID}.png`);
+			await fs.outputFile(pathImg, canvas.toBuffer('image/png'));
 
 			return message.reply({
 				body: `🌐 [ RÉSULTAT DU SCAN ] Données extraites avec succès.\n🆔 UID : ${targetID}`,
 				attachment: fs.createReadStream(pathImg)
-			}, () => fs.unlinkSync(pathImg));
+			}, () => {
+				if (fs.existsSync(pathImg)) fs.unlinkSync(pathImg);
+			});
 
 		} catch (error) {
-			return message.reply(`Erreur système : ${error.message}`);
+			console.error(error);
+			return message.reply(`❌ Erreur système : ${error.message}`);
 		}
 	}
 };
