@@ -83,7 +83,7 @@ async function generateCmdCanvas(userId, userName, actionTitle, statusText, deta
 	drawRoundedRect(ctx, 32, 32, 836, 386, 8);
 	ctx.stroke();
 
-	// Décorations graphiques (✦ ▬▭▬)
+	// Décorations graphiques
 	ctx.fillStyle = themeColor;
 	ctx.font = 'bold 16px sans-serif';
 	ctx.textAlign = 'left';
@@ -160,10 +160,11 @@ async function generateCmdCanvas(userId, userName, actionTitle, statusText, deta
 module.exports = {
 	config: {
 		name: "cmd",
-		version: "2.5.0",
-		author: "NTKhang x Célestin 🔥 (Canvas Edition)",
+		version: "2.6.0",
+		author: "NTKhang x Célestin 🔥",
 		countDown: 5,
 		role: 2,
+		usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
 		description: {
 			vi: "Quản lý các tệp lệnh của bạn",
 			en: "Manage your command files"
