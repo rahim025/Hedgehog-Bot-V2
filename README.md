@@ -63,7 +63,7 @@ Chaque commande de **Cassidy Bot** est née de la fusion entre la magie Shinobi 
 Déployez la puissance du bot en exécutant ces commandes dans votre terminal :
 ```bash
 # 1. Invoquer les fichiers sacrés depuis le sanctuaire
-git clone [https://github.com/flackodisk12-sudo/Cassidy-bot](https://github.com/flackodisk12-sudo/Cassidy-bot)
+git clone [https://github.com/flackodisk12-sudo/Cassidy-bot.git](https://github.com/flackodisk12-sudo/Cassidy-bot.git)
 # 2. Pénétrer dans le repaire du bot
 cd Cassidy-bot
 # 3. Injecter l'énergie requise (Dépendances)
