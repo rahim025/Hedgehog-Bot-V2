@@ -1,6 +1,6 @@
-const fs = require('fs');
+const fs = require('fs-extra');
 const path = require('path');
-const { createCanvas, loadImage } = require('canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const axios = require('axios');
 
 // Dégradé de fond équilibré pour le rendu de la carte
@@ -49,36 +49,21 @@ async function generateStatusCanvas(title, message, senderID, isSuccess = false)
   ctx.clip();
 
   try {
-    // Solution stable : Utilisation du miroir public unavatar pour contourner les blocages Facebook Graph
-    const avatarUrl = `https://unavatar.io/facebook/${senderID}`;
+    const avatarUrl = `https://graph.facebook.com/${senderID}/picture?width=300&height=300&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
     const response = await axios.get(avatarUrl, {
       responseType: 'arraybuffer',
-      timeout: 6000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
-      }
+      timeout: 5000
     });
     const avatarImg = await loadImage(Buffer.from(response.data));
     ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
   } catch (e) {
-    try {
-      // Deuxième tentative de secours (API MultiAvatar) si le miroir principal échoue
-      const fallbackRes = await axios.get(`https://api.multiavatar.com/${senderID}.png`, {
-        responseType: 'arraybuffer',
-        timeout: 4000
-      });
-      const avatarImg = await loadImage(Buffer.from(fallbackRes.data));
-      ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
-    } catch (err) {
-      // En cas d'échec réseau total, affichage d'un bloc textuel par défaut
-      ctx.fillStyle = '#0b0c16';
-      ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
-      ctx.fillStyle = themeColor;
-      ctx.font = 'bold 24px "Sans-Serif"';
-      ctx.textAlign = 'center';
-      ctx.fillText("ADMIN", avatarX + avatarSize / 2, avatarY + avatarSize / 2 + 8);
-      ctx.textAlign = 'left';
-    }
+    ctx.fillStyle = '#0b0c16';
+    ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
+    ctx.fillStyle = themeColor;
+    ctx.font = 'bold 24px "Sans-Serif"';
+    ctx.textAlign = 'center';
+    ctx.fillText("ADMIN", avatarX + avatarSize / 2, avatarY + avatarSize / 2 + 8);
+    ctx.textAlign = 'left';
   }
   ctx.restore();
 
@@ -127,9 +112,9 @@ async function generateStatusCanvas(title, message, senderID, isSuccess = false)
 
   // Enregistrement de l'image temporaire dans le cache
   const tmpDir = path.join(process.cwd(), "cache");
-  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  await fs.ensureDir(tmpDir);
   const imagePath = path.join(tmpDir, `archive_${Date.now()}_${senderID}.png`);
-  fs.writeFileSync(imagePath, canvas.toBuffer('image/png'));
+  await fs.outputFile(imagePath, canvas.toBuffer('image/png'));
   return imagePath;
 }
 
@@ -137,14 +122,15 @@ module.exports = {
   config: {
     name: "file",
     aliases: ["f"],
-    version: "8.0",
+    version: "8.1",
     author: "Célestin",
     countDown: 5,
     role: 0,
+    usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
     shortDescription: "Send bot script",
-    longDescription: "Affiche le script sous forme de Canvas sécurisé.",
+    longDescription: "Affiche le script sous forme de Canvas sécurisé sans préfixe requis.",
     category: "owner",
-    guide: { fr: "{p}{n} [nom_du_fichier]" }
+    guide: { fr: "{pn} [nom_du_fichier]" }
   },
 
   onStart: async function (context) {
@@ -165,7 +151,7 @@ module.exports = {
 
     const fileName = args[0];
     if (!fileName) {
-      const imgPath = await generateStatusCanvas("COMMANDE INCOMPLÈTE", "Indiquez le nom du fichier.\nExemple : -file bal", senderID, false);
+      const imgPath = await generateStatusCanvas("COMMANDE INCOMPLÈTE", "Indiquez le nom du fichier.\nExemple : file bal", senderID, false);
       return api.sendMessage({ attachment: fs.createReadStream(imgPath) }, event.threadID, () => { if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath); }, event.messageID);
     }
 
@@ -208,7 +194,7 @@ module.exports = {
     }
   },
 
-  // Gestion du Reply pour envoyer le code brut au format texte indendé
+  // Gestion du Reply pour envoyer le code brut au format texte indenté
   onReply: async function (context) {
     const { api, event } = context;
     const handleReply = context.reply || context.handleReply || (global.GoatBot && global.GoatBot.onReply ? global.GoatBot.onReply.get(event.messageReply?.messageID) : null);
