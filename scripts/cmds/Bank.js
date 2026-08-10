@@ -90,19 +90,16 @@ async function generateBankCanvas(userId, userName, cash, bank, statusText) {
   let avatarLoaded = false;
   let avatarImg;
   try {
-    // URL officielle Graph API pour l'avatar carré en haute résolution (500x500)
     const avatarUrl = `https://graph.facebook.com/${userId}/picture?width=500&height=500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
     avatarImg = await loadImage(avatarUrl);
     avatarLoaded = true;
   } catch (e) {
-    // Fallback si l'avatar échoue (compte restreint ou API inaccessible)
     avatarLoaded = false;
   }
 
-  // Positionnement des textes selon la présence ou non de l'avatar
-  const textStartX = avatarLoaded ? 160 : 60;
+  const textStartX = 160;
 
-  // Rendu de l'avatar en cercle s'il est chargé
+  // Rendu de l'avatar en cercle
   if (avatarLoaded) {
     ctx.save();
     ctx.beginPath();
@@ -112,12 +109,24 @@ async function generateBankCanvas(userId, userName, cash, bank, statusText) {
     ctx.drawImage(avatarImg, 60, 65, 80, 80);
     ctx.restore();
 
-    // Petit cercle décoratif "Online / Sécurisé" (Cobalt) autour de l'avatar
+    // Cercle d'accentuation Cobalt
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(100, 105, 42, 0, Math.PI * 2, true);
     ctx.stroke();
+  } else {
+    // Fallback : Avatar par défaut avec initiale si l'image FB ne charge pas
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.arc(100, 105, 40, 0, Math.PI * 2, true);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((userName[0] || 'U').toUpperCase(), 100, 116);
+    ctx.textAlign = 'left';
   }
 
   // Titres du relevé
@@ -129,7 +138,7 @@ async function generateBankCanvas(userId, userName, cash, bank, statusText) {
   ctx.font = '500 12px sans-serif';
   ctx.fillText(`TITULAIRE : ${userName.toUpperCase()}  |  ID : ${userId}`, textStartX, 125);
 
-  // Zone des Soldes (Grille asymétrique épurée)
+  // Zone des Soldes
   // 1. Solde Liquide (Cash)
   ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
   ctx.roundRect(60, 170, 370, 120, 12); 
@@ -154,7 +163,7 @@ async function generateBankCanvas(userId, userName, cash, bank, statusText) {
   ctx.font = 'bold 26px sans-serif';
   ctx.fillText(fmt(bank), 490, 245);
 
-  // Barre d'activité en bas
+  // Ligne de séparation
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
   ctx.beginPath(); ctx.moveTo(60, 330); ctx.lineTo(840, 330); ctx.stroke();
 
@@ -163,7 +172,7 @@ async function generateBankCanvas(userId, userName, cash, bank, statusText) {
   ctx.font = '14px sans-serif';
   ctx.fillText(`Dernière opération : ${statusText}`, 60, 375);
 
-  // Signature de temps et pied de page
+  // Pied de page
   const dateStr = moment().tz("Europe/Paris").format("DD.MM.YYYY // HH:mm");
   ctx.fillStyle = '#64748b';
   ctx.font = '500 12px sans-serif';
@@ -184,6 +193,7 @@ module.exports = {
     author: "Célestin",
     countDown: 3,
     role: 0,
+    usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
     description: { fr: "Gère l'intégralité de vos finances : dépôts, retraits, épargne et virements." },
     category: "economy",
     guide: {
@@ -202,7 +212,7 @@ module.exports = {
 
     const action = args[0] ? args[0].toLowerCase() : "me";
 
-    // Application des intérêts en cours (simule une actualisation horaire/par action)
+    // Application des intérêts
     if (bank > 0) {
       const interests = Math.floor(bank * INTEREST_RATE);
       if (interests > 0) {
