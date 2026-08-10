@@ -19,9 +19,11 @@
   "adminBot": [
     "61591895887142"
   ],
-  "whiteListMode": { " 61591895887142" }, 
+  "whiteListMode": {
     "enable": false,
-    "whiteListIds": [],
+    "whiteListIds": [
+      "61591895887142"
+    ],
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
   "nickNameBot": "➤『  𝒐𝒄𝒉𝒖𝒘𝒂 𝒃𝒐𝒕.☜ヅ",
