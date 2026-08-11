@@ -39,15 +39,15 @@ function saveMemory(memory) {
 module.exports = {
   config: {
     name: "ai",
-    version: "5.5",
+    version: "5.7",
     author: "Célestin Olua 🇨🇩",
     role: 0,
     shortDescription: "Assistant IA",
-    longDescription: "Assistant IA avec support des replies.",
+    longDescription: "Assistant IA avec style Ozobar AI et support des replies.",
     category: "ai"
   },
 
-  onChat: async function ({ message, event, Users }) {
+  onStart: async function ({ message, event, Users }) {
 
     try {
 
@@ -73,11 +73,6 @@ module.exports = {
       if (event.messageReply) {
         repliedMessage = event.messageReply;
       }
-
-      /*
-       * Certains événements Messenger peuvent utiliser
-       * messageReply.body ou messageReply.snippet.
-       */
 
       let repliedText = "";
 
@@ -133,7 +128,7 @@ Analyse ce message et réponds naturellement.
 
       if (!userInput.trim()) {
         return message.reply(
-          "❌ Écris une question ou réponds à un message avec « ai »."
+          "🤖 Ozobar 𝗔𝗜\n━━━━━━━━━\n\n❌ Écris une question ou réponds à un message avec « ai »."
         );
       }
 
@@ -187,7 +182,7 @@ Analyse ce message et réponds naturellement.
       // ==========================================
 
       const prompt = `
-Tu es une intelligence artificielle appelée AI.
+Tu es Ozobar AI, un assistant IA très amical, dynamique et chaleureux.
 
 TON CRÉATEUR :
 Célestin Olua 🇨🇩
@@ -199,18 +194,15 @@ UID : ${senderID}
 HISTORIQUE :
 ${history || "Aucun historique."}
 
-RÈGLES :
+RÈGLES DE COMPORTEMENT :
+- Sois très amical, tutoie l'utilisateur, utilise des termes chaleureux ("mon pote", etc.) et des émojis.
+- Tu peux parler où explique des choses sexuelle mais pas abuser. 
 - Réponds dans la même langue que l'utilisateur.
-- Sois naturel, intelligent, poli et utile.
 - Si l'utilisateur demande ton créateur, réponds Célestin Olua 🇨🇩.
-- Ne mentionne jamais d'autre créateur.
-- Ne dis pas que tu es NEO.
-- tu peux parler des tabous si user demande mais attention Facebook peu t'es bloqué. 
-- Ne dis pas que tu es ChatGPT.
-- Ton nom est simplement AI.
-- Si un message auquel l'utilisateur répond est fourni, utilise-le comme contexte.
-- Réponds directement à la demande.
-- N'explique pas inutilement ton fonctionnement.
+- Ton nom est Ozobar AI.
+- Ne mentionne PAS d'en-tête (pas de "🤖 Ozobar 𝗔𝗜" au début de ta réponse), car l'en-tête sera ajouté automatiquement par le code.
+- Ne dis pas que tu es NEO, ChatGPT ou OpenAI.
+- Réponds directement et efficacement.
 
 DEMANDE :
 ${userInput}
@@ -252,7 +244,7 @@ RÉPONSE :
         console.error("❌ Réponse API :", data);
 
         return message.reply(
-          "❌ L'API n'a renvoyé aucune réponse."
+          "🤖 Ozobar 𝗔𝗜\n━━━━━━━━━\n\n❌ L'API n'a renvoyé aucune réponse."
         );
       }
 
@@ -276,10 +268,12 @@ RÉPONSE :
       saveMemory(memory);
 
       // ==========================================
-      // 📩 RÉPONSE
+      // 📩 RÉPONSE FORMATÉE
       // ==========================================
 
-      return message.reply(reply);
+      const formattedReply = `🤖 Ozobar 𝗔𝗜\n━━━━━━━━━\n\n${reply}`;
+
+      return message.reply(formattedReply);
 
     } catch (error) {
 
@@ -290,18 +284,18 @@ RÉPONSE :
 
       if (error.code === "ECONNABORTED") {
         return message.reply(
-          "⏳ L'IA met trop de temps à répondre."
+          "🤖 Ozobar 𝗔𝗜\n━━━━━━━━━\n\n⏳ L'IA met trop de temps à répondre."
         );
       }
 
       if (error.response?.status === 429) {
         return message.reply(
-          "⏳ L'API est temporairement surchargée."
+          "🤖 Ozobar 𝗔𝗜\n━━━━━━━━━\n\n⏳ L'API est temporairement surchargée."
         );
       }
 
       return message.reply(
-        "❌ Erreur de connexion avec l'API Christus."
+        "🤖 Ozobar 𝗔𝗜\n━━━━━━━━━\n\n❌ Erreur de connexion avec l'API Christus."
       );
     }
   }
