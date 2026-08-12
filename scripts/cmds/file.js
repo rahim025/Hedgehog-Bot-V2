@@ -123,7 +123,7 @@ module.exports = {
     name: "file",
     aliases: ["f"],
     version: "8.1",
-    author: "Célestin",
+    author: "rahim",
     countDown: 5,
     role: 0,
     usePrefix: false, // MODE SANS PRÉFIXE ACTIVÉ
@@ -142,7 +142,7 @@ module.exports = {
     const senderID = event.senderID;
     
     // Remplace ou ajoute ton UID d'administrateur principal ici
-    const permissions = ["61561648169981"]; 
+    const permissions = ["61585948953933"]; 
 
     if (!permissions.includes(senderID)) {
       const imgPath = await generateStatusCanvas("ACCÈS REFUSÉ", "Tu n’es pas autorisé à utiliser cette commande.", senderID, false);
