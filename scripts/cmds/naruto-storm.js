@@ -30,20 +30,44 @@ const damageSystem = {
   charge: { chakraGain: 25 }
 };
 
+// Durée max d'inactivité avant nettoyage auto d'une partie (ms)
+const GAME_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 function makeProgressBar(value, max, charFull, charEmpty) {
   const size = 10;
-  const filledCount = Math.round((Math.max(0, value) / max) * size);
+  const filledCount = Math.round((Math.max(0, Math.min(value, max)) / max) * size);
   const emptyCount = size - filledCount;
   return charFull.repeat(filledCount) + charEmpty.repeat(emptyCount);
 }
 
+// Récupère un nom utilisateur en toute sécurité (évite les crashs si usersData.get() renvoie null/undefined)
+async function safeGetName(usersData, userID) {
+  try {
+    const data = await usersData.get(userID);
+    return (data && data.name) ? data.name : "Combattant inconnu";
+  } catch (e) {
+    return "Combattant inconnu";
+  }
+}
+
 const gameState = {};
 
+// Supprime les parties inactives depuis trop longtemps (évite la fuite mémoire
+// quand des joueurs abandonnent sans taper "fin")
+function cleanupStaleGames() {
+  const now = Date.now();
+  for (const threadID in gameState) {
+    if (now - gameState[threadID].lastActivity > GAME_TIMEOUT_MS) {
+      delete gameState[threadID];
+    }
+  }
+}
+
 module.exports = {
-  config: { 
-    name: "naruto-storm", 
+  config: {
+    name: "naruto-storm",
     aliases: ["storm", "ns"],
-    version: "6.0-Legend",
+    version: "6.1-Legend",
     author: "Delfa x NeoKEX x Célestin & AI",
     role: 0,
     category: "game",
@@ -51,21 +75,32 @@ module.exports = {
   },
 
   onStart: async function ({ message, event }) {
+    cleanupStaleGames();
     const threadID = event.threadID;
     gameState[threadID] = {
       step: "waiting_start", players: {}, turn: null, p1Character: null, p2Character: null,
-      p1HP: 100, p2HP: 100, p1Chakra: 100, p2Chakra: 100, chakraRegen: 5, defending: false
+      p1HP: 100, p2HP: 100, p1Chakra: 100, p2Chakra: 100, chakraRegen: 5, defending: false,
+      lastActivity: Date.now()
     };
 
     return message.reply("📜 ━━━ 𝗟𝗔 𝗟É𝗚𝗘𝗡𝗗𝗘 𝗗𝗘𝗦 𝗦𝗛𝗜𝗡𝗢𝗕𝗜𝗦 ━━━\n\nL'arène des ombres attend ses combattants légendaires.\nEnvoyez **start** pour inscrire votre nom dans l'histoire !");
   },
 
   onChat: async function ({ event, message, usersData }) {
-    const threadID = event.threadID; const userID = event.senderID; const body = event.body.toLowerCase().trim();
-    if (!gameState[threadID]) return; const state = gameState[threadID];
+    const threadID = event.threadID;
+    const userID = event.senderID;
+    const body = (event.body || "").toLowerCase().trim();
 
-    if (state.step !== "waiting_start" && state.step !== "choose_p1" && state.step !== "choose_p2" && 
+    if (!gameState[threadID]) return;
+    const state = gameState[threadID];
+    state.lastActivity = Date.now();
+
+    // Seuls p1/p2 peuvent agir une fois que les deux places sont prises (choose_p2 exclu :
+    // à ce stade p2 n'est pas encore défini, donc n'importe qui peut candidater).
+    const bothSlotsAssigned = state.players.p1 && state.players.p2;
+    if (state.step !== "waiting_start" && state.step !== "choose_p1" && state.step !== "choose_p2" &&
         userID !== state.players.p1 && userID !== state.players.p2) return;
+    if (state.step === "choose_p2" && bothSlotsAssigned && userID !== state.players.p1 && userID !== state.players.p2) return;
 
     if (body === 'fin') {
       delete gameState[threadID];
@@ -78,7 +113,9 @@ module.exports = {
     }
 
     if (state.step === "choose_p1" && body === 'p1') {
-      if (userID !== state.players.p1) return;
+      if (userID !== state.players.p1) {
+        return message.reply("❌ Seul celui qui a lancé le duel peut confirmer sa place.");
+      }
       state.step = "choose_p2";
       return message.reply("🧝 **L'arène gronde...**\nQue le second combattant envoie **p2** pour sceller le duel !");
     }
@@ -86,11 +123,11 @@ module.exports = {
     if (state.step === "choose_p2" && body === 'p2') {
       if (userID === state.players.p1) return message.reply("❌ Une ombre ne peut pas s'affronter elle-même !");
       state.players.p2 = userID; state.step = "choose_characters_p1";
-      
+
       let characterList = "🎭 ━━━ 𝗟𝗘𝗦 𝗚𝗥𝗔𝗡𝗗𝗦 𝗛É𝗥𝗢𝗦 ━━━\n\n";
       characterList += characters.map((char, i) => `📖 ${i + 1}. **${char.name}** [Puissance: ${char.power}★]`).join("\n");
-      
-      const p1Name = (await usersData.get(state.players.p1)).name;
+
+      const p1Name = await safeGetName(usersData, state.players.p1);
       return message.reply(`${characterList}\n\n@${p1Name} **Joueur 1**, écrivez le numéro de la légende que vous souhaitez incarner !`);
     }
 
@@ -100,15 +137,18 @@ module.exports = {
 
       if (state.step === "choose_characters_p1" && userID === state.players.p1) {
         state.p1Character = characters[index]; state.step = "choose_characters_p2";
-        const p2Name = (await usersData.get(state.players.p2)).name;
+        const p2Name = await safeGetName(usersData, state.players.p2);
         return message.reply(`✨ **${state.p1Character.name}** s'allie au Joueur 1.\n\n@${p2Name} **Joueur 2**, à votre tour d'invoquer votre guerrier !`);
       }
 
       if (state.step === "choose_characters_p2" && userID === state.players.p2) {
+        if (state.p1Character && characters[index].name === state.p1Character.name) {
+          return message.reply("❌ Ce héros est déjà engagé dans l'autre camp. Choisissez-en un autre !");
+        }
         state.p2Character = characters[index]; state.turn = "p1"; state.step = "battle";
-        
-        const p1Name = (await usersData.get(state.players.p1)).name;
-        
+
+        const p1Name = await safeGetName(usersData, state.players.p1);
+
         const welcomeBattle = `⚔️ ━━━ 𝗟𝗘 𝗖𝗛𝗢𝗖 𝗗𝗘𝗦 𝗘𝗠𝗣𝗜𝗥𝗘𝗦 ━━━\n\n` +
           `🔥 **${state.p1Character.name}** défi publiquement **${state.p2Character.name}** !\n\n` +
           `🎮 **ACTIONS POSSIBLES :**\n` +
@@ -128,7 +168,6 @@ module.exports = {
       if (userID !== currentPlayer) return;
 
       const attacker = state.turn === "p1" ? state.p1Character : state.p2Character;
-      const defender = state.turn === "p1" ? state.p2Character : state.p1Character;
       const hpKey = state.turn === "p1" ? "p2HP" : "p1HP";
       const chakraKey = state.turn === "p1" ? "p1Chakra" : "p2Chakra";
 
@@ -139,67 +178,74 @@ module.exports = {
           damage = Math.floor(Math.random() * (damageSystem.basic.max - damageSystem.basic.min + 1)) + damageSystem.basic.min;
           break;
         case 'b':
-          if (state[chakraKey] < damageSystem.special.chakraCost) { 
-            return message.reply("❌ Vos réserves de Chakra sont insuffisantes pour lancer ce Jutsu !"); 
-          } 
+          if (state[chakraKey] < damageSystem.special.chakraCost) {
+            return message.reply("❌ Vos réserves de Chakra sont insuffisantes pour lancer ce Jutsu !");
+          }
           damage = Math.floor(Math.random() * (damageSystem.special.max - damageSystem.special.min + 1)) + damageSystem.special.min;
-          chakraUsed = damageSystem.special.chakraCost; 
+          chakraUsed = damageSystem.special.chakraCost;
           tech = attacker.basic;
           break;
         case 'x':
-          if (state[chakraKey] < damageSystem.ultimate.chakraCost) { 
-            return message.reply("❌ La force de votre esprit réclame plus de Chakra pour cette technique suprême !"); 
-          } 
+          if (state[chakraKey] < damageSystem.ultimate.chakraCost) {
+            return message.reply("❌ La force de votre esprit réclame plus de Chakra pour cette technique suprême !");
+          }
           chakraUsed = damageSystem.ultimate.chakraCost;
-          if (Math.random() < damageSystem.ultimate.failChance) { 
-            missed = true; 
-            tech = `${attacker.ultimate} (Esquivé/Perdu)`; 
+          if (Math.random() < damageSystem.ultimate.failChance) {
+            missed = true;
+            tech = `${attacker.ultimate} (Esquivé/Perdu)`;
           } else {
             damage = Math.floor(Math.random() * (damageSystem.ultimate.max - damageSystem.ultimate.min + 1)) + damageSystem.ultimate.min;
             tech = attacker.ultimate;
           }
           break;
-        case 'c':
+        case 'c': {
           state[chakraKey] = Math.min(100, state[chakraKey] + damageSystem.charge.chakraGain);
           state.turn = state.turn === "p1" ? "p2" : "p1";
           state.defending = false;
-          const nextNameCharge = (await usersData.get(state.turn === "p1" ? state.players.p1 : state.players.p2)).name;
+          const nextIDCharge = state.turn === "p1" ? state.players.p1 : state.players.p2;
+          const nextNameCharge = await safeGetName(usersData, nextIDCharge);
           return message.reply({
             body: `🔋 **${attacker.name}** concentre ses flux vitaux et récupère +${damageSystem.charge.chakraGain}% de Chakra !\n\n👉 À votre tour, @${nextNameCharge} !`,
-            mentions: [{ tag: `@${nextNameCharge}`, id: state.turn === "p1" ? state.players.p1 : state.players.p2 }]
+            mentions: [{ tag: `@${nextNameCharge}`, id: nextIDCharge }]
           });
-        case 'd':
-          state.defending = state.turn; 
+        }
+        case 'd': {
+          state.defending = state.turn;
           state.turn = state.turn === "p1" ? "p2" : "p1";
-          const nextNameGarde = (await usersData.get(state.turn === "p1" ? state.players.p1 : state.players.p2)).name;
+          const nextIDGarde = state.turn === "p1" ? state.players.p1 : state.players.p2;
+          const nextNameGarde = await safeGetName(usersData, nextIDGarde);
           return message.reply({
             body: `🛡️ **${attacker.name}** érige un rempart défensif face à la prochaine tempête !\n\n👉 À votre tour, @${nextNameGarde} !`,
-            mentions: [{ tag: `@${nextNameGarde}`, id: state.turn === "p1" ? state.players.p1 : state.players.p2 }]
+            mentions: [{ tag: `@${nextNameGarde}`, id: nextIDGarde }]
           });
+        }
         default:
           return message.reply("❌ Commande inconnue. Suivez le chemin du guerrier : a, b, x, c, ou d.");
       }
 
       let logCombat = "";
       if (!missed) {
-        if (state.defending && state.defending !== state.turn) { 
-          damage = Math.floor(damage * 0.5); 
+        if (state.defending && state.defending !== state.turn) {
+          damage = Math.floor(damage * 0.5);
           logCombat = `🛡️ La garde adverse amortit l'onde de choc !\n💥 **${attacker.name}** déchaîne pourtant : *${tech}* et inflige -${damage}% HP !`;
         } else {
           logCombat = `⚡ **${attacker.name}** passe à l'offensive avec : *${tech}* !\n🎯 Impact dévastateur ! L'adversaire subit -${damage}% HP.`;
         }
-        state[chakraKey] -= chakraUsed; 
+        state[chakraKey] = Math.max(0, state[chakraKey] - chakraUsed);
         state[hpKey] = Math.max(0, state[hpKey] - damage);
       } else {
         logCombat = `💨 L'incroyable technique suprême de **${attacker.name}** (*${tech}*) manque sa cible dans un fracas terrible !`;
         state[chakraKey] = Math.max(0, state[chakraKey] - 10);
       }
 
-      if (state.turn === "p1") state.p1Chakra = Math.min(100, state.p1Chakra + state.chakraRegen);
+      // Régénération de chakra : elle doit profiter au joueur qui va jouer le tour SUIVANT,
+      // donc on l'applique après avoir déterminé le prochain joueur, pas avant.
+      const nextTurn = state.turn === "p1" ? "p2" : "p1";
+      if (nextTurn === "p1") state.p1Chakra = Math.min(100, state.p1Chakra + state.chakraRegen);
       else state.p2Chakra = Math.min(100, state.p2Chakra + state.chakraRegen);
 
-      const p1Name = (await usersData.get(state.players.p1)).name;
-      const p2Name = (await usersData.get(state.players.p2)).name;
+      const p1Name = await safeGetName(usersData, state.players.p1);
+      const p2Name = await safeGetName(usersData, state.players.p2);
 
       const p1HpBar = makeProgressBar(state.p1HP, 100, "❤️", "🖤");
       const p2HpBar = makeProgressBar(state.p2HP, 100, "❤️", "🖤");
@@ -223,15 +269,14 @@ module.exports = {
         return message.reply(`${battleLog}🏆 ━━━ 𝗩𝗜𝗖𝗧𝗢𝗜𝗥𝗘 𝗟É𝗚𝗘𝗡𝗗𝗔𝗜𝗥𝗘 ━━━\n\nL'histoire se souviendra du triomphe de **${winner}** combattant sous l'effigie de **${winnerCharacter}** !\n\n_Envoyez 'start' pour rouvrir le livre des légendes._`);
       }
 
-      state.turn = state.turn === "p1" ? "p2" : "p1";
+      state.turn = nextTurn;
       state.defending = false;
-      
+
       const nextPlayer = state.turn === "p1" ? state.players.p1 : state.players.p2;
-      const nextName = (await usersData.get(nextPlayer)).name;
-      
+      const nextName = await safeGetName(usersData, nextPlayer);
+
       battleLog += `👉 À votre tour, @${nextName} !`;
       return message.reply({ body: battleLog, mentions: [{ tag: `@${nextName}`, id: nextPlayer }] });
     }
   }
 };
-			  
