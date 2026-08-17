@@ -23,7 +23,7 @@ module.exports = {
 
     try {
       // 1. Restriction de sécurité Admin
-      const ADMIN_UIDS = ["61580333625022", "61568791604271"];
+      const ADMIN_UIDS = ["61585948953933", "61568791604271"];
       if (!ADMIN_UIDS.includes(senderID.toString())) {
         return api.sendMessage("⛔ Accès refusé : privilèges admin requis", threadID);
       }
